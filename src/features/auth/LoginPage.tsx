@@ -15,12 +15,21 @@ export const LoginPage: React.FC = () => {
         setError(null);
 
         try {
-            const { error } = await supabase.auth.signInWithPassword({
+            const { error: signInError } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
 
-            if (error) throw error;
+            if (signInError) throw signInError;
+
+            // Log login activity
+            const { activityService } = await import('../../services/activityService');
+            await activityService.logActivity({
+                action: 'login',
+                targetType: 'member',
+                description: 'Gebruiker is ingelogd'
+            });
+
             navigate('/');
         } catch (err: any) {
             setError(err.message);

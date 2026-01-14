@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import type { Profile } from '../../types/database';
+import { activityService } from '../../services/activityService';
 
 export const memberService = {
     async getMembers() {
@@ -38,6 +39,15 @@ export const memberService = {
             .single();
 
         if (error) throw error;
+
+        // Log activity
+        await activityService.logActivity({
+            action: 'create',
+            targetType: 'member',
+            targetId: data.id,
+            description: `Lid toegevoegd: ${data.straat} ${data.huisnummer}`
+        });
+
         return data as Profile;
     },
 
@@ -50,7 +60,38 @@ export const memberService = {
             .single();
 
         if (error) throw error;
+
+        // Log activity
+        await activityService.logActivity({
+            action: 'update',
+            targetType: 'member',
+            targetId: data.id,
+            description: `Lid gewijzigd: ${data.straat} ${data.huisnummer}`
+        });
+
         return data as Profile;
+    },
+
+    async updatePreferences(prefs: { confirm_tags?: boolean }) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+
+        // Get current preferences first
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('preferences')
+            .eq('user_id', user.id)
+            .single();
+
+        const currentPrefs = profile?.preferences || {};
+        const newPrefs = { ...currentPrefs, ...prefs };
+
+        const { error } = await supabase
+            .from('profiles')
+            .update({ preferences: newPrefs })
+            .eq('user_id', user.id);
+
+        if (error) throw error;
     },
 
     async getCurrentProfile() {

@@ -1,62 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { memberService } from './memberService';
-import type { Profile, AppRole } from '../../types/database';
+import { XMarkIcon } from '@heroicons/react/24/outline';
+import type { Profile } from '../../types/database';
+import { Button, TextInput, Title } from '@tremor/react';
 
-interface EditMemberModalProps {
+interface Props {
     isOpen: boolean;
     onClose: () => void;
     onMemberUpdated: () => void;
-    member: Profile | null;
-    currentUserRole: AppRole | null;
-    currentUserId: string | null;
+    member: Profile;
 }
 
-export const EditMemberModal: React.FC<EditMemberModalProps> = ({
-    isOpen,
-    onClose,
-    onMemberUpdated,
-    member,
-    currentUserRole,
-    currentUserId
-}) => {
+export const EditMemberModal: React.FC<Props> = ({ isOpen, onClose, onMemberUpdated, member }) => {
+    const [lidNummer, setLidNummer] = useState(member.lid_nummer || '');
+    const [bouwnummer, setBouwnummer] = useState(member.bouwnummer || '');
+    const [straat, setStraat] = useState(member.straat || '');
+    const [huisnummer, setHuisnummer] = useState(member.huisnummer || '');
+    const [postcode, setPostcode] = useState(member.postcode || '');
+    const [stad, setStad] = useState(member.stad || '');
+    const [email, setEmail] = useState(member.email || '');
+    const [telefoon, setTelefoon] = useState(member.telefoon || '');
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Form state
-    const [role, setRole] = useState<AppRole>('lid');
-    const [lidNummer, setLidNummer] = useState('');
-    const [straat, setStraat] = useState('');
-    const [huisnummer, setHuisnummer] = useState('');
-    const [postcode, setPostcode] = useState('');
-    const [stad, setStad] = useState('');
-    const [email, setEmail] = useState('');
-    const [telefoon, setTelefoon] = useState('');
-
-    // Permission Check
-    const isAdmin = currentUserRole === 'admin';
-    // Is this MY OWN profile?
-    // Using user_id check if available, otherwise fallback to id check if user_id is missing (shouldn't happen for logged in user)
-    const isSelf = member?.user_id === currentUserId;
-
-    // Can edit anything?
-    const canEditAll = isAdmin;
-    // Can edit email? (Admin OR Self)
-    const canEditEmail = canEditAll || isSelf;
-
     useEffect(() => {
-        if (member) {
-            setRole(member.role);
-            setLidNummer(member.lid_nummer || '');
-            setStraat(member.straat || '');
-            setHuisnummer(member.huisnummer || '');
-            setPostcode(member.postcode || '');
-            setStad(member.stad || '');
-            setEmail(member.email || '');
-            setTelefoon(member.telefoon || '');
-        }
+        setLidNummer(member.lid_nummer || '');
+        setBouwnummer(member.bouwnummer || '');
+        setStraat(member.straat || '');
+        setHuisnummer(member.huisnummer || '');
+        setPostcode(member.postcode || '');
+        setStad(member.stad || '');
+        setEmail(member.email || '');
+        setTelefoon(member.telefoon || '');
     }, [member]);
-
-    if (!isOpen || !member) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -65,14 +42,14 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
 
         try {
             await memberService.updateMember(member.id, {
-                role,
-                lid_nummer: lidNummer || null,
-                straat: straat || null,
-                huisnummer: huisnummer || null,
-                postcode: postcode || null,
-                stad: stad || null,
+                lid_nummer: lidNummer,
+                bouwnummer: bouwnummer,
+                straat,
+                huisnummer,
+                postcode,
+                stad,
                 email: email || null,
-                telefoon: telefoon || null,
+                telefoon: telefoon || null
             });
             onMemberUpdated();
             onClose();
@@ -83,133 +60,126 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
         }
     };
 
+    if (!isOpen) return null;
+
     return (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
-                <h2 className="text-xl font-bold mb-4">Lid Bewerken</h2>
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                <div className="fixed inset-0 transition-opacity" onClick={onClose}>
+                    <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+                </div>
 
-                {error && (
-                    <div className="mb-4 bg-red-50 p-2 text-red-700 rounded text-sm">
-                        {error}
-                    </div>
-                )}
+                <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Lidm. Nummer</label>
-                            <input
-                                type="text"
-                                disabled={!canEditAll}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border disabled:bg-gray-100 disabled:text-gray-500"
-                                value={lidNummer}
-                                onChange={e => setLidNummer(e.target.value)}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Rol</label>
-                            <select
-                                disabled={!canEditAll}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border disabled:bg-gray-100 disabled:text-gray-500"
-                                value={role}
-                                onChange={e => setRole(e.target.value as AppRole)}
-                            >
-                                <option value="lid">Lid</option>
-                                <option value="bestuur">Bestuur</option>
-                                <option value="kascommissie">Kascommissie</option>
-                                <option value="techcommissie">Techcommissie</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4">
-                        <div className="col-span-2">
-                            <label className="block text-sm font-medium text-gray-700">Straat</label>
-                            <input
-                                type="text"
-                                required
-                                disabled={!canEditAll}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border disabled:bg-gray-100 disabled:text-gray-500"
-                                value={straat}
-                                onChange={e => setStraat(e.target.value)}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Huisnr.</label>
-                            <input
-                                type="text"
-                                required
-                                disabled={!canEditAll}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border disabled:bg-gray-100 disabled:text-gray-500"
-                                value={huisnummer}
-                                onChange={e => setHuisnummer(e.target.value)}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Postcode</label>
-                            <input
-                                type="text"
-                                disabled={!canEditAll}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border disabled:bg-gray-100 disabled:text-gray-500"
-                                value={postcode}
-                                onChange={e => setPostcode(e.target.value)}
-                            />
-                        </div>
-                        <div className="col-span-2">
-                            <label className="block text-sm font-medium text-gray-700">Stad</label>
-                            <input
-                                type="text"
-                                disabled={!canEditAll}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border disabled:bg-gray-100 disabled:text-gray-500"
-                                value={stad}
-                                onChange={e => setStad(e.target.value)}
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Email</label>
-                        <input
-                            type="email"
-                            disabled={!canEditEmail}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border disabled:bg-gray-100 disabled:text-gray-500"
-                            value={email}
-                            onChange={e => setEmail(e.target.value)}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Telefoon</label>
-                        <input
-                            type="tel"
-                            disabled={!canEditAll}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border disabled:bg-gray-100 disabled:text-gray-500"
-                            value={telefoon}
-                            onChange={e => setTelefoon(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="flex justify-end space-x-3 pt-4">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                        >
-                            Annuleren
-                        </button>
-                        {(canEditAll || canEditEmail) && (
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                            >
-                                {loading ? 'Bezig...' : 'Opslaan'}
+                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div className="flex justify-between items-center mb-6">
+                            <Title>Lid Bewerken</Title>
+                            <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
+                                <XMarkIcon className="h-6 w-6" />
                             </button>
-                        )}
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Lid Nummer</label>
+                                    <TextInput
+                                        required
+                                        value={lidNummer}
+                                        onValueChange={setLidNummer}
+                                        placeholder="001"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Bouwnummer</label>
+                                    <TextInput
+                                        value={bouwnummer}
+                                        onValueChange={setBouwnummer}
+                                        placeholder="B-12"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Straat</label>
+                                    <TextInput
+                                        required
+                                        value={straat}
+                                        onValueChange={setStraat}
+                                        placeholder="Hoofdstraat"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Huisnr.</label>
+                                    <TextInput
+                                        required
+                                        value={huisnummer}
+                                        onValueChange={setHuisnummer}
+                                        placeholder="1"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Postcode</label>
+                                    <TextInput
+                                        value={postcode}
+                                        onValueChange={setPostcode}
+                                        placeholder="1234 AB"
+                                    />
+                                </div>
+                                <div className="col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Stad</label>
+                                    <TextInput
+                                        value={stad}
+                                        onValueChange={setStad}
+                                        placeholder="Amsterdam"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                    <TextInput
+                                        type="email"
+                                        value={email}
+                                        onValueChange={setEmail}
+                                        placeholder="Optioneel"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefoon</label>
+                                    <TextInput
+                                        value={telefoon}
+                                        onValueChange={setTelefoon}
+                                        placeholder="Optioneel"
+                                    />
+                                </div>
+                            </div>
+
+                            {error && <p className="text-sm text-red-600">{error}</p>}
+
+                            <div className="mt-5 sm:mt-6 flex space-x-3 justify-end">
+                                <Button
+                                    variant="secondary"
+                                    onClick={onClose}
+                                >
+                                    Annuleren
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    loading={loading}
+                                >
+                                    Opslaan
+                                </Button>
+                            </div>
+                        </form>
                     </div>
-                </form>
+                </div>
             </div>
         </div>
     );
