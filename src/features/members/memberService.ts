@@ -22,7 +22,7 @@ export const memberService = {
         const { data: myProfile, error: profileError } = await supabase
             .from('profiles')
             .select('vve_id')
-            .eq('user_id', user.id)
+            .eq('id', user.id)
             .single();
 
         if (profileError || !myProfile) throw new Error('Could not fetch your VvE ID');
@@ -80,7 +80,7 @@ export const memberService = {
         const { data: profile } = await supabase
             .from('profiles')
             .select('preferences')
-            .eq('user_id', user.id)
+            .eq('id', user.id)
             .single();
 
         const currentPrefs = profile?.preferences || {};
@@ -89,7 +89,7 @@ export const memberService = {
         const { error } = await supabase
             .from('profiles')
             .update({ preferences: newPrefs })
-            .eq('user_id', user.id);
+            .eq('id', user.id);
 
         if (error) throw error;
     },
@@ -98,10 +98,22 @@ export const memberService = {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return null;
 
+        // Fetch profile AND memberships
         const { data, error } = await supabase
             .from('profiles')
-            .select('*')
-            .eq('user_id', user.id)
+            .select(`
+                *,
+                vve_memberships (
+                    id,
+                    role,
+                    vve_id,
+                    vves (
+                        id,
+                        name
+                    )
+                )
+            `)
+            .eq('id', user.id)
             .single();
 
         if (error) return null;

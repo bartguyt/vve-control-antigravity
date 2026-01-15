@@ -47,13 +47,15 @@ export const AddEventModal: React.FC<Props> = ({ isOpen, onClose, onEventSaved, 
                 setEndTime(toLocalISO(event.end_time || undefined));
                 setLocation(event.location || '');
 
-                // For categories, we might need to fetch the junction data or rely on what's passed
-                // For now assuming we parse them from a separate fetch or if the event object has them.
-                // NOTE: The current getEvents returns `event_categories!category_id` which implies single category?
-                // Actually the migration changed it to many-to-many but existing fetch might need adjustment.
-                // Let's assume for now we might only have the old one or we need to fetch specific categories for this event.
-                // See below for fetching categories for this event.
-                fetchEventCategories(event.id);
+                // Populate categories from the event object (now populated by getEvents)
+                if (event.categories && event.categories.length > 0) {
+                    setSelectedCategories(event.categories.map(c => c.name));
+                } else if (event.event_categories) {
+                    // Fallback for legacy single category
+                    setSelectedCategories([event.event_categories.name]);
+                } else {
+                    setSelectedCategories([]);
+                }
 
             } else {
                 // Create mode: reset
@@ -87,50 +89,7 @@ export const AddEventModal: React.FC<Props> = ({ isOpen, onClose, onEventSaved, 
         }
     };
 
-    const fetchEventCategories = async (eventId: string) => {
-        // We need a way to get categories for this specific event.
-        // Since getEvents might not return all of them if the query isn't perfect yet for M2M.
-        // Let's do a quick client-side fetch or assuming the passed event object *could* have them if we fix getEvents.
-        // For now, let's just fetch them directly from the junction table to be safe/accurate.
-        // Actually, we can just use the supabase client here temporarily or add a method to agendaService.
-        // Let's add the logic here for speed.
-        try {
-            const { agendaService } = await import('./agendaService'); // dynamic import or just use the imported one.
-            // Oh wait, I can just use the imported agendaService if I add a method, 
-            // OR I can lazily query here if I had the supabase client.
-            // Let's just assume we start with empty and let user add, OR better:
-            // The user wants to see existing tags.
-            // I'll assume for now `event` *might* have them if I updated getEvents, but I haven't updated `getEvents` query fully for M2M array yet.
-            // I will update the `getEvents` query in agendaService next.
-            // For now, if event has `event_categories` (singular from old join) we use that, otherwise empty.
-            if (event?.event_categories) {
-                // @ts-ignore
-                if (Array.isArray(event.event_categories)) {
-                    // @ts-ignore
-                    setSelectedCategories(event.event_categories.map(c => c.name));
-                } else {
-                    // Old single object
-                    setSelectedCategories([event.event_categories.name]);
-                }
-            }
-
-            // BETTER: Let's fetch the actual categories for this event
-            const { supabase } = await import('../../lib/supabase');
-            const { data } = await supabase
-                .from('agenda_event_categories')
-                .select('event_categories(name)')
-                .eq('event_id', eventId);
-
-            if (data) {
-                // @ts-ignore
-                const names = data.map(d => d.event_categories?.name).filter(Boolean);
-                setSelectedCategories(names);
-            }
-
-        } catch (e) {
-            console.error(e);
-        }
-    };
+    // fetchEventCategories removed as it is no longer needed
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

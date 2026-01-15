@@ -12,7 +12,7 @@ export interface AgendaEvent {
     vve_id: string;
     title: string;
     description: string | null;
-    category_id: string | null;
+    category_id: string | null; // Kept for legacy/database compatibility
     start_time: string;
     end_time: string | null;
     location: string | null;
@@ -20,7 +20,8 @@ export interface AgendaEvent {
     created_by: string | null;
     created_at: string;
     updated_at: string | null;
-    event_categories?: EventCategory;
+    categories?: EventCategory[]; // New standard
+    event_categories?: EventCategory; // Deprecated single category
     profiles?: {
         email: string;
         first_name?: string;
@@ -34,13 +35,24 @@ export const agendaService = {
             .from('agenda_events')
             .select(`
                 *,
-                event_categories!category_id (id, name),
+                agenda_event_categories (
+                    event_categories (
+                        id,
+                        name,
+                        vve_id
+                    )
+                ),
                 profiles:created_by (email)
             `)
             .order('start_time', { ascending: true });
 
         if (error) throw error;
-        return data as AgendaEvent[];
+
+        // Transform the nested response into a clean flat array
+        return data.map((event: any) => ({
+            ...event,
+            categories: event.agenda_event_categories?.map((junction: any) => junction.event_categories) || []
+        })) as AgendaEvent[];
     },
 
     async getCategories() {

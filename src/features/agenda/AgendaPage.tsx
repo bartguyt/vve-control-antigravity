@@ -188,10 +188,21 @@ export const AgendaPage: React.FC = () => {
                                                 </div>
                                                 <div className="flex-1">
                                                     <Flex justifyContent="start" className="space-x-2">
-                                                        {event.event_categories?.name && (
-                                                            <Badge size="xs" color="gray">
-                                                                {event.event_categories.name}
-                                                            </Badge>
+                                                        {event.categories && event.categories.length > 0 ? (
+                                                            <div className="flex gap-1 flex-wrap">
+                                                                {event.categories.map(cat => (
+                                                                    <Badge key={cat.id} size="xs" color="gray">
+                                                                        {cat.name}
+                                                                    </Badge>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            // Fallback for partial data or legacy
+                                                            event.event_categories?.name && (
+                                                                <Badge size="xs" color="gray">
+                                                                    {event.event_categories.name}
+                                                                </Badge>
+                                                            )
                                                         )}
                                                         <Text className="font-bold text-gray-900">{event.title}</Text>
                                                     </Flex>

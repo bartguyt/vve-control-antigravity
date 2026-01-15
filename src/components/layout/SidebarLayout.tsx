@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { memberService } from '../../features/members/memberService';
+import type { Profile } from '../../types/database';
+import { CreateVveModal } from '../../features/vve/CreateVveModal';
 import {
     HomeIcon,
     UsersIcon,
@@ -15,8 +18,12 @@ import {
     TruckIcon,
     BriefcaseIcon,
     Cog6ToothIcon,
-    ArrowLeftOnRectangleIcon
+    ArrowLeftOnRectangleIcon,
+    BuildingOffice2Icon,
+    ChevronUpDownIcon,
+    PlusIcon
 } from '@heroicons/react/24/outline';
+import { Listbox, Transition } from '@headlessui/react';
 
 interface NavItem {
     name: string;
@@ -30,6 +37,16 @@ const mainNav: NavItem[] = [
     { name: 'Documenten', path: '/documents', icon: DocumentDuplicateIcon },
     { name: 'Agenda', path: '/agenda', icon: CalendarIcon },
 ];
+
+const restrictedPaths: Record<string, string[]> = {
+    '/bank': ['admin', 'manager', 'board', 'audit_comm'],
+    '/accounting': ['admin', 'manager', 'board', 'audit_comm'],
+    '/contributions': ['admin', 'manager', 'board', 'audit_comm'],
+    '/tasks': ['admin', 'manager', 'board', 'tech_comm'],
+    '/suppliers': ['admin', 'manager', 'board', 'tech_comm'],
+    '/assignments': ['admin', 'manager', 'board', 'tech_comm'],
+    '/settings': ['admin', 'manager', 'board'],
+};
 
 const futureNav: NavItem[] = [
     { name: 'Bankrekening', path: '/bank', icon: CreditCardIcon },
@@ -45,11 +62,68 @@ const futureNav: NavItem[] = [
 
 export const SidebarLayout: React.FC = () => {
     const navigate = useNavigate();
+    const [profile, setProfile] = useState<Profile | null>(null);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+    useEffect(() => {
+        loadProfile();
+    }, []);
+
+    const loadProfile = async () => {
+        try {
+            const p = await memberService.getCurrentProfile();
+            setProfile(p);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            // Loading state removed
+        }
+    };
+
+    const handleSwitchVve = async (vveId: string) => {
+        if (!profile || profile.vve_id === vveId) return;
+
+        try {
+            await supabase
+                .from('profiles')
+                .update({ vve_id: vveId })
+                .eq('id', profile.id);
+
+            window.location.reload();
+        } catch (e) {
+            console.error('Failed to switch VvE', e);
+        }
+    };
+
+    const handleCreateSuccess = (_newVveId: string) => {
+        window.location.reload();
+    };
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
         navigate('/login');
     };
+
+    const activeMembership = profile?.vve_memberships?.find(m => m.vve_id === profile.vve_id);
+    const activeRole = activeMembership?.role || 'member';
+    const isSuperAdmin = profile?.is_super_admin || false;
+    const activeVveName = activeMembership?.vves?.name || 'Mijn VvE';
+    const memberships = profile?.vve_memberships || [];
+
+    const filterNav = (items: NavItem[]) => {
+        let filtered = items;
+        if (!isSuperAdmin) {
+            filtered = items.filter(item => {
+                const allowedRoles = restrictedPaths[item.path];
+                if (!allowedRoles) return true;
+                return allowedRoles.includes(activeRole);
+            });
+        }
+        return filtered;
+    };
+
+    const filteredMainNav = filterNav(mainNav);
+    const filteredFutureNav = filterNav(futureNav);
 
     const navLinkClass = ({ isActive }: { isActive: boolean }) =>
         `flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors ${isActive
@@ -59,18 +133,112 @@ export const SidebarLayout: React.FC = () => {
 
     return (
         <div className="flex h-screen bg-gray-50 overflow-hidden">
-            {/* Sidebar */}
+            <CreateVveModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+                onSuccess={handleCreateSuccess}
+            />
+
             <aside className="w-64 bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out">
-                {/* Logo */}
-                <div className="h-16 flex items-center px-6 border-b border-gray-100">
-                    <span className="text-xl font-bold text-indigo-600">VvE Control</span>
+                <div className="flex flex-col px-4 py-4 border-b border-gray-100 bg-gray-50/50">
+                    <div className="flex items-center mb-4">
+                        <span className="text-xl font-bold text-indigo-600">VvE Control</span>
+                    </div>
+
+                    <div className="mb-4 px-1">
+                        <p className="text-sm font-semibold text-gray-900 truncate" title={profile?.email || ''}>{profile?.email}</p>
+                        <div className="flex items-center mt-1">
+                            <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10 capitalize">
+                                {activeRole === 'admin' ? 'Beheerder' :
+                                    activeRole === 'board' ? 'Bestuur' :
+                                        activeRole === 'manager' ? 'Beheerder' :
+                                            activeRole === 'member' ? 'Lid' : activeRole}
+                            </span>
+                            {isSuperAdmin && (
+                                <span className="ml-2 inline-flex items-center rounded-md bg-fuchsia-50 px-2 py-1 text-xs font-medium text-fuchsia-700 ring-1 ring-inset ring-fuchsia-700/10">
+                                    Super Admin
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    <Listbox value={profile?.vve_id || ''} onChange={(val) => {
+                        if (val === 'NEW') {
+                            setIsCreateModalOpen(true);
+                        } else {
+                            handleSwitchVve(val);
+                        }
+                    }}>
+                        <div className="relative mt-1">
+                            <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-white py-2 pl-3 pr-10 text-left shadow-sm border border-gray-200 focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white/75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
+                                <span className="block truncate font-medium text-gray-900">{activeVveName}</span>
+                                <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                                    <ChevronUpDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                                </span>
+                            </Listbox.Button>
+                            <Transition
+                                as={React.Fragment}
+                                leave="transition ease-in duration-100"
+                                leaveFrom="opacity-100"
+                                leaveTo="opacity-0"
+                            >
+                                <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm z-50">
+                                    {memberships.map((m) => (
+                                        <Listbox.Option
+                                            key={m.id}
+                                            className={({ active }) =>
+                                                `relative cursor-default select-none py-2 pl-10 pr-4 ${active ? 'bg-indigo-100 text-indigo-900' : 'text-gray-900'}`
+                                            }
+                                            value={m.vve_id}
+                                        >
+                                            {({ selected }) => (
+                                                <>
+                                                    <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
+                                                        {m.vves?.name || 'Naamloos'}
+                                                    </span>
+                                                    {selected ? (
+                                                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-indigo-600">
+                                                            <CheckCircleIcon className="h-5 w-5" aria-hidden="true" />
+                                                        </span>
+                                                    ) : null}
+                                                </>
+                                            )}
+                                        </Listbox.Option>
+                                    ))}
+
+                                    <div className="border-t border-gray-100 my-1"></div>
+                                    <Listbox.Option
+                                        key="new"
+                                        className={({ active }) =>
+                                            `relative cursor-pointer select-none py-2 pl-10 pr-4 text-indigo-600 font-medium ${active ? 'bg-indigo-50' : ''}`
+                                        }
+                                        value="NEW"
+                                    >
+                                        <div className="flex items-center">
+                                            <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+                                                <PlusIcon className="h-4 w-4" aria-hidden="true" />
+                                            </span>
+                                            <span className="block truncate">Nieuwe VvE toevoegen</span>
+                                        </div>
+                                    </Listbox.Option>
+                                </Listbox.Options>
+                            </Transition>
+                        </div>
+                    </Listbox>
                 </div>
 
-                {/* Navigation */}
                 <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-8">
-                    {/* Primary Sections */}
                     <div className="space-y-1">
-                        {mainNav.map((item) => (
+                        {isSuperAdmin && (
+                            <NavLink to="/admin" className={({ isActive }) => `${navLinkClass({ isActive })} mb-4 border-b border-gray-100 pb-2`}>
+                                <div className="flex items-center">
+                                    <BuildingOffice2Icon className="mr-3 h-5 w-5 flex-shrink-0 text-fuchsia-600" />
+                                    <span className="text-fuchsia-700 font-medium">Beheer Dashboard</span>
+                                </div>
+                            </NavLink>
+                        )}
+
+                        {filteredMainNav.map((item) => (
                             <NavLink key={item.path} to={item.path} className={navLinkClass}>
                                 <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
                                 {item.name}
@@ -78,13 +246,12 @@ export const SidebarLayout: React.FC = () => {
                         ))}
                     </div>
 
-                    {/* Future Modules */}
                     <div>
                         <h3 className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                             Toekomstig
                         </h3>
                         <div className="space-y-1">
-                            {futureNav.map((item) => (
+                            {filteredFutureNav.map((item) => (
                                 <NavLink key={item.path} to={item.path} className={navLinkClass}>
                                     <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
                                     {item.name}
@@ -94,7 +261,6 @@ export const SidebarLayout: React.FC = () => {
                     </div>
                 </nav>
 
-                {/* Footer / Logout */}
                 <div className="p-4 border-t border-gray-100">
                     <button
                         onClick={handleLogout}
@@ -106,7 +272,6 @@ export const SidebarLayout: React.FC = () => {
                 </div>
             </aside>
 
-            {/* Main Content */}
             <main className="flex-1 overflow-y-auto focus:outline-none bg-gray-50">
                 <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
                     <Outlet />

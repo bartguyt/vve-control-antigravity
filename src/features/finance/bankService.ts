@@ -15,7 +15,7 @@ export const bankService = {
     },
 
     // 2. Mock Requisition (Link Request)
-    async createRequisition(institutionId: string = 'MOCK_BANK') {
+    async createRequisition(_institutionId: string = 'MOCK_BANK') {
         // Return a local redirect that simulates coming back from the bank
         const redirect = `${window.location.origin}/settings?callback=mock&ref=${MOCK_REQUISITION_ID}`;
 

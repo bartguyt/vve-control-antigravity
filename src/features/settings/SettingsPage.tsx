@@ -9,13 +9,9 @@ import {
     TabPanel,
     Card,
     Button,
-    Badge,
-    List,
-    ListItem,
     Icon,
     Select,
     SelectItem,
-    Divider,
     Switch
 } from '@tremor/react';
 import { memberService } from '../members/memberService';
@@ -25,7 +21,6 @@ import {
     BuildingLibraryIcon,
     UserIcon,
     Cog6ToothIcon,
-    CheckCircleIcon,
     ExclamationCircleIcon,
     TrashIcon,
     CreditCardIcon,
