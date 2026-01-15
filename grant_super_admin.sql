@@ -1,9 +1,10 @@
--- Make sure your own user is a Super Admin
--- Replace the email address below with your own login email!
+-- GRANT SUPER ADMIN
+-- Updates specific user to be super admin.
+-- Idempotent: safe to run multiple times.
 
-UPDATE profiles
-SET is_super_admin = true
-WHERE email = 'bart@guijt.nl'; -- of jouw emailadres
+UPDATE public.profiles
+SET is_super_admin = TRUE
+WHERE id = '3efbb432-a923-446b-896e-3866fb9718b6';
 
--- Optional: Verify it worked
-SELECT id, email, is_super_admin FROM profiles WHERE is_super_admin = true;
+-- Verify
+SELECT id, email, is_super_admin FROM public.profiles WHERE id = '3efbb432-a923-446b-896e-3866fb9718b6';

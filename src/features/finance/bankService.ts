@@ -32,9 +32,17 @@ export const bankService = {
 
         const { data: profile } = await supabase
             .from('profiles')
-            .select('vve_id')
+            .select(`
+                vve_memberships!fk_memberships_profiles_userid (
+                    vve_id
+                )
+            `)
             .eq('user_id', user.id)
             .single();
+
+        if (!profile?.vve_memberships?.[0]?.vve_id) return;
+
+        const vveId = profile.vve_memberships[0].vve_id;
 
         if (!profile) return;
 
@@ -42,7 +50,7 @@ export const bankService = {
         const { data: connection, error: connError } = await supabase
             .from('bank_connections')
             .insert({
-                vve_id: profile.vve_id,
+                vve_id: vveId,
                 requisition_id: requisitionId,
                 status: status,
                 provider_name: 'Mock Bank (Demo)'
@@ -63,7 +71,7 @@ export const bankService = {
 
             mockAccounts.push({
                 connection_id: connection.id,
-                vve_id: profile.vve_id,
+                vve_id: vveId,
                 external_id: `mock-acc-${i}-${Date.now()}`,
                 iban: `NL${Math.floor(Math.random() * 90) + 10}MOCK${Math.floor(Math.random() * 1000000000).toString().padStart(9, '0')}`,
                 name: name,
@@ -87,7 +95,7 @@ export const bankService = {
             const mockTransactions = [
                 {
                     account_id: account.id,
-                    vve_id: profile.vve_id,
+                    vve_id: vveId,
                     external_id: `tx-1-${account.id}`,
                     booking_date: new Date().toISOString().split('T')[0],
                     amount: -1250.00,
@@ -97,7 +105,7 @@ export const bankService = {
                 },
                 {
                     account_id: account.id,
-                    vve_id: profile.vve_id,
+                    vve_id: vveId,
                     external_id: `tx-2-${account.id}`,
                     booking_date: new Date(Date.now() - 86400000 * 2).toISOString().split('T')[0],
                     amount: 150.00,
@@ -131,18 +139,25 @@ export const bankService = {
 
         // Find the most recent active connection for this user's VvE
         // Simplified: just get accounts linked to user's VvE
+        // Find the most recent active connection for this user's VvE
         const { data: profile } = await supabase
             .from('profiles')
-            .select('vve_id')
+            .select(`
+                vve_memberships!fk_memberships_profiles_userid (
+                    vve_id
+                )
+            `)
             .eq('user_id', user.id)
             .single();
 
-        if (!profile) return [];
+        if (!profile?.vve_memberships?.[0]?.vve_id) return [];
+
+        const vveId = profile.vve_memberships[0].vve_id;
 
         const { data } = await supabase
             .from('bank_accounts')
             .select('*')
-            .eq('vve_id', profile.vve_id);
+            .eq('vve_id', vveId);
 
         return data || [];
     },
@@ -170,8 +185,56 @@ export const bankService = {
             .eq('id', connectionId);
 
         if (error) throw error;
+    },
 
-        // Note: CASCADE delete on database tables (bank_accounts -> bank_connections) 
-        // ensures accounts and transactions are also removed.
+    // 7. Link Transaction to Member
+    async linkTransaction(transactionId: string, memberId: string) {
+        const { error } = await supabase
+            .from('bank_transactions')
+            .update({ linked_member_id: memberId })
+            .eq('id', transactionId);
+
+        if (error) throw error;
+    },
+
+    // 7b. Bulk Link by IBAN
+    async linkTransactionsByIban(iban: string, vveId: string, memberId: string) {
+        const { error } = await supabase
+            .from('bank_transactions')
+            .update({ linked_member_id: memberId })
+            .eq('counterparty_iban', iban)
+            .eq('vve_id', vveId); // Scope to VvE just to be safe
+
+        if (error) throw error;
+    },
+
+    // 8. Get Member Transactions
+    async getMemberTransactions(memberId: string) {
+        const { data, error } = await supabase
+            .from('bank_transactions')
+            .select(`
+                *,
+                bank_accounts (
+                    id,
+                    name,
+                    iban,
+                    account_type
+                )
+             `)
+            .eq('linked_member_id', memberId)
+            .order('booking_date', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
+    },
+
+    // 9. Delete All Transactions for Account
+    async deleteAccountTransactions(accountId: string) {
+        const { error } = await supabase
+            .from('bank_transactions')
+            .delete()
+            .eq('account_id', accountId);
+
+        if (error) throw error;
     }
 };

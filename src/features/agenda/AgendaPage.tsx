@@ -27,6 +27,7 @@ import {
     ClockIcon,
     PlusIcon
 } from '@heroicons/react/24/outline';
+import { PageHeader } from '../../components/ui/PageHeader';
 
 export const AgendaPage: React.FC = () => {
     const [events, setEvents] = useState<AgendaEvent[]>([]);
@@ -126,19 +127,14 @@ export const AgendaPage: React.FC = () => {
 
     return (
         <div className="p-6 space-y-6">
-            <Flex justifyContent="between" alignItems="center">
-                <Title>Agenda</Title>
-                <Button
-                    icon={PlusIcon}
-                    onClick={() => {
-                        setSelectedEvent(null);
-                        setIsAddModalOpen(true);
-                    }}
-                    color="indigo"
-                >
-                    Nieuw Evenement
-                </Button>
-            </Flex>
+            <PageHeader
+                title="Agenda"
+                onAdd={() => {
+                    setSelectedEvent(null);
+                    setIsAddModalOpen(true);
+                }}
+                addLabel="Nieuw Evenement"
+            />
 
             <TabGroup>
                 <TabList className="mt-4">

@@ -21,7 +21,9 @@ import {
 } from '@tremor/react';
 import { bankService } from './bankService';
 import { useNavigate } from 'react-router-dom';
-import { PlusIcon, ArrowsRightLeftIcon, CreditCardIcon, CircleStackIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, ArrowsRightLeftIcon, CreditCardIcon, CircleStackIcon, LinkIcon, UserIcon } from '@heroicons/react/24/outline';
+import { LinkTransactionModal } from './LinkTransactionModal';
+import { memberService } from '../members/memberService';
 
 interface Account {
     id: string;
@@ -41,6 +43,10 @@ interface Transaction {
     amount: number;
     currency: string;
     transaction_type: string;
+    linked_member_id?: string | null;
+    linked_member_name?: string; // We will fetch/join this
+    counterparty_iban?: string;
+    vve_id: string; // Needed for bulk update
 }
 
 export const BankAccountPage: React.FC = () => {
@@ -49,6 +55,9 @@ export const BankAccountPage: React.FC = () => {
     const [selectedAccountIndex, setSelectedAccountIndex] = useState(0);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const [linkModalOpen, setLinkModalOpen] = useState(false);
+    const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
     useEffect(() => {
         loadAccounts();
@@ -75,9 +84,34 @@ export const BankAccountPage: React.FC = () => {
     const loadTransactions = async (accountId: string) => {
         try {
             const data = await bankService.getTransactions(accountId);
-            setTransactions(data);
+            // Fetch names for linked members? Or join in query safely.
+            // For now, let's load members to a map or assume data contains enough info if we used valid join.
+            // But currently getTransactions doesn't join profiles. Ideally update service to join.
+            // Alternatively, load members and map.
+
+            // For demo speed, I'll fetch members once and map names.
+            const members = await memberService.getMembers(); // Cached ideally
+            const dataWithNames = data.map((tx: any) => ({
+                ...tx,
+                linked_member_name: tx.linked_member_id
+                    ? members.find(m => m.id === tx.linked_member_id)?.last_name
+                    : undefined
+            }));
+
+            setTransactions(dataWithNames);
         } catch (error) {
             console.error('Error loading transactions:', error);
+        }
+    };
+
+    const openLinkModal = (tx: Transaction) => {
+        setSelectedTx(tx);
+        setLinkModalOpen(true);
+    };
+
+    const handleLinkSuccess = () => {
+        if (accounts.length > 0) {
+            loadTransactions(accounts[selectedAccountIndex].id);
         }
     };
 
@@ -154,18 +188,26 @@ export const BankAccountPage: React.FC = () => {
                                                 <TableHeaderCell>Tegenpartij</TableHeaderCell>
                                                 <TableHeaderCell>Omschrijving</TableHeaderCell>
                                                 <TableHeaderCell>Bedrag</TableHeaderCell>
+                                                <TableHeaderCell>Lid</TableHeaderCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
                                             {transactions.map((tx) => (
-                                                <TableRow key={tx.id}>
+                                                <TableRow key={tx.id} className="hover:bg-gray-50">
                                                     <TableCell>
                                                         {new Date(tx.booking_date).toLocaleDateString('nl-NL')}
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Text className="font-medium text-gray-900">
-                                                            {tx.creditor_name || tx.debtor_name || 'Onbekend'}
-                                                        </Text>
+                                                        <div>
+                                                            <Text className="font-medium text-gray-900">
+                                                                {tx.creditor_name || tx.debtor_name || 'Onbekend'}
+                                                            </Text>
+                                                            {tx.counterparty_iban && (
+                                                                <Text className="text-xs text-gray-400 font-mono">
+                                                                    {tx.counterparty_iban}
+                                                                </Text>
+                                                            )}
+                                                        </div>
                                                     </TableCell>
                                                     <TableCell>
                                                         <Text className="truncate max-w-xs" title={tx.description}>{tx.description}</Text>
@@ -178,11 +220,35 @@ export const BankAccountPage: React.FC = () => {
                                                             {tx.amount > 0 ? '+' : ''} € {Math.abs(tx.amount).toFixed(2)}
                                                         </Badge>
                                                     </TableCell>
+                                                    <TableCell>
+                                                        {tx.linked_member_id ? (
+                                                            <div className="flex items-center space-x-2">
+                                                                <Badge size="xs" color="blue" icon={UserIcon}>
+                                                                    {tx.linked_member_name || 'Lid'}
+                                                                </Badge>
+                                                                <button
+                                                                    className="text-gray-400 hover:text-blue-600"
+                                                                    onClick={() => openLinkModal(tx)}
+                                                                >
+                                                                    <ArrowsRightLeftIcon className="h-4 w-4" />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <Button
+                                                                size="xs"
+                                                                variant="light"
+                                                                icon={LinkIcon}
+                                                                onClick={() => openLinkModal(tx)}
+                                                            >
+                                                                Koppel
+                                                            </Button>
+                                                        )}
+                                                    </TableCell>
                                                 </TableRow>
                                             ))}
                                             {transactions.length === 0 && (
                                                 <TableRow>
-                                                    <TableCell colSpan={4}>Geen transacties gevonden.</TableCell>
+                                                    <TableCell colSpan={5}>Geen transacties gevonden.</TableCell>
                                                 </TableRow>
                                             )}
                                         </TableBody>
@@ -193,6 +259,19 @@ export const BankAccountPage: React.FC = () => {
                     ))}
                 </TabPanels>
             </TabGroup>
+
+            {selectedTx && (
+                <LinkTransactionModal
+                    isOpen={linkModalOpen}
+                    onClose={() => setLinkModalOpen(false)}
+                    onSuccess={handleLinkSuccess}
+                    transactionId={selectedTx.id}
+                    transactionDescription={selectedTx.description}
+                    transactionAmount={selectedTx.amount}
+                    counterpartyIban={selectedTx.counterparty_iban}
+                    vveId={selectedTx.vve_id}
+                />
+            )}
         </div>
     );
 };

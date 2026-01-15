@@ -114,6 +114,7 @@ export const UploadDocumentModal: React.FC<Props> = ({ isOpen, onClose, onDocume
 
                             <div className="mt-5 sm:mt-6 flex space-x-3 justify-end">
                                 <Button
+                                    type="button"
                                     variant="secondary"
                                     onClick={resetAndClose}
                                 >

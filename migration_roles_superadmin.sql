@@ -130,7 +130,9 @@ FOR ALL USING (
 
 -- DOCUMENTS
 DROP POLICY IF EXISTS "Users can view documents in their VvE" ON documents;
+DROP POLICY IF EXISTS "Users can view documents in their VvEs" ON documents; -- Added this line
 DROP POLICY IF EXISTS "Admins can manage documents" ON documents;
+DROP POLICY IF EXISTS "Admins/Managers can manage documents" ON documents; -- Added this line
 
 CREATE POLICY "Users can view documents in their VvEs" ON documents
 FOR SELECT USING (has_access_to_vve(vve_id));
@@ -146,29 +148,35 @@ FOR ALL USING (
 
 -- ACTIVITY LOGS
 DROP POLICY IF EXISTS "Users can view activities in their VvE" ON activity_logs;
+DROP POLICY IF EXISTS "Users can view activities in their VvEs" ON activity_logs; -- Added this line
 CREATE POLICY "Users can view activities in their VvEs" ON activity_logs
 FOR SELECT USING (has_access_to_vve(vve_id));
 
 -- BANKING
 DROP POLICY IF EXISTS "Users can view bank connections for their VvE" ON bank_connections;
+DROP POLICY IF EXISTS "Users can view bank connections" ON bank_connections;
 CREATE POLICY "Users can view bank connections" ON bank_connections
 FOR SELECT USING (has_access_to_vve(vve_id));
 
 DROP POLICY IF EXISTS "Users can view bank accounts for their VvE" ON bank_accounts;
+DROP POLICY IF EXISTS "Users can view bank accounts" ON bank_accounts;
 CREATE POLICY "Users can view bank accounts" ON bank_accounts
 FOR SELECT USING (has_access_to_vve(vve_id));
 
 DROP POLICY IF EXISTS "Users can view bank transactions for their VvE" ON bank_transactions;
+DROP POLICY IF EXISTS "Users can view bank transactions" ON bank_transactions;
 CREATE POLICY "Users can view bank transactions" ON bank_transactions
 FOR SELECT USING (has_access_to_vve(vve_id));
 
 -- ACCESS TO MEMBERSHIPS TABLE ITSELF
+DROP POLICY IF EXISTS "Users can view memberships of shared VvEs" ON vve_memberships;
 CREATE POLICY "Users can view memberships of shared VvEs" ON vve_memberships
 FOR SELECT USING (
   user_id = auth.uid() OR
   has_access_to_vve(vve_id)
 );
 
+DROP POLICY IF EXISTS "Super Admins manage all memberships" ON vve_memberships;
 CREATE POLICY "Super Admins manage all memberships" ON vve_memberships
 FOR ALL USING (
     EXISTS (SELECT 1 FROM profiles WHERE user_id = auth.uid() AND is_super_admin = TRUE)

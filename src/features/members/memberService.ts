@@ -103,7 +103,7 @@ export const memberService = {
             .from('profiles')
             .select(`
                 *,
-                vve_memberships (
+                vve_memberships!fk_memberships_profiles_userid (
                     id,
                     role,
                     vve_id,
@@ -113,10 +113,106 @@ export const memberService = {
                     )
                 )
             `)
-            .eq('id', user.id)
+            .eq('user_id', user.id) // Correctly match auth.uid via FK column
+            .limit(1)
             .single();
 
         if (error) return null;
         return data as Profile;
+    },
+
+    async getMemberIbans(userId: string) {
+        const { data, error } = await supabase
+            .from('member_ibans')
+            .select('iban')
+            .eq('user_id', userId);
+
+        if (error) throw error;
+        return data?.map(d => d.iban) || [];
+    },
+
+    async addMemberIban(userId: string, iban: string) {
+        // First check if exists
+        const { data: existing } = await supabase
+            .from('member_ibans')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('iban', iban)
+            .single();
+
+        if (existing) return;
+
+        const { error } = await supabase
+            .from('member_ibans')
+            .insert({ user_id: userId, iban });
+
+        if (error) throw error;
+    },
+
+    // Unlink all finance data for a member
+    async unlinkMemberFinance(memberId: string) {
+        // 1. Remove IBAN entries
+        const { error: ibanError } = await supabase
+            .from('member_ibans')
+            .delete()
+            .eq('user_id', memberId);
+
+        if (ibanError) throw ibanError;
+
+        // 2. Unlink transactions
+        const { error: txError } = await supabase
+            .from('bank_transactions')
+            .update({ linked_member_id: null })
+            .eq('linked_member_id', memberId);
+
+        if (txError) throw txError;
+    },
+
+    // SUPER ADMIN: Reset ALL finance links
+    async resetAllFinanceLinks(vveId: string) {
+        // 1. Remove all IBAN entries for this VvE's members
+        // We need to filter by VvE matches.
+
+        const { data: members } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('vve_id', vveId);
+
+        if (!members || members.length === 0) return;
+
+        const memberIds = members.map(m => m.id);
+
+        const { error: ibanError } = await supabase
+            .from('member_ibans')
+            .delete()
+            .in('user_id', memberIds);
+
+        if (ibanError) throw ibanError;
+
+        // 2. Unlink all transactions for this VvE
+        const { error: txError } = await supabase
+            .from('bank_transactions')
+            .update({ linked_member_id: null })
+            .eq('vve_id', vveId);
+
+        if (txError) throw txError;
+    },
+
+    async deleteMember(memberId: string) {
+        // Log activity before delete (since data will be gone)
+        // Ideally we fetch first to get name for log, but simplistic approach here
+        await activityService.logActivity({
+            action: 'delete',
+            targetType: 'member',
+            targetId: memberId,
+            description: `Lid verwijderd`
+        });
+
+        const { error } = await supabase
+            .from('profiles')
+            .delete()
+            .eq('id', memberId);
+
+        if (error) throw error;
     }
 };

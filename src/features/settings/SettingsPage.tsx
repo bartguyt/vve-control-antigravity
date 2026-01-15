@@ -12,7 +12,10 @@ import {
     Icon,
     Select,
     SelectItem,
-    Switch
+    Switch,
+    Dialog,
+    DialogPanel,
+    TextInput
 } from '@tremor/react';
 import { memberService } from '../members/memberService';
 import { supabase } from '../../lib/supabase';
@@ -22,11 +25,17 @@ import {
     UserIcon,
     Cog6ToothIcon,
     ExclamationCircleIcon,
+    ExclamationTriangleIcon,
     TrashIcon,
     CreditCardIcon,
-    CircleStackIcon
+    CircleStackIcon,
+    BoltIcon,
+    PencilIcon,
+    CheckIcon,
+    XMarkIcon
 } from '@heroicons/react/24/outline';
 import { useSearchParams } from 'react-router-dom';
+import { seedFinanceData } from '../../utils/seedFinance';
 
 export const SettingsPage: React.FC = () => {
     const [selectedTab, setSelectedTab] = useState(0);
@@ -40,6 +49,14 @@ export const SettingsPage: React.FC = () => {
 
     // Preferences state
     const [confirmTags, setConfirmTags] = useState(false);
+
+    // Seed Modal state
+    const [seedModalOpen, setSeedModalOpen] = useState(false);
+    const [selectedSeedAccount, setSelectedSeedAccount] = useState<string>('');
+
+    // Renaming state
+    const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+    const [tempAccountName, setTempAccountName] = useState('');
 
     useEffect(() => {
         loadPreferences();
@@ -152,6 +169,26 @@ export const SettingsPage: React.FC = () => {
         }
     };
 
+    const handleStartEditing = (acc: any) => {
+        setEditingAccountId(acc.id);
+        setTempAccountName(acc.name || '');
+    };
+
+    const handleSaveName = async (accountId: string) => {
+        try {
+            setLoading(true);
+            // We need a bankService method for this, or just update directly via supabase if service is missing method.
+            // Let's assume we can add it or just use supabase for speed here.
+            await supabase.from('bank_accounts').update({ name: tempAccountName }).eq('id', accountId);
+            await refreshBankData();
+            setEditingAccountId(null);
+        } catch (e) {
+            console.error(e);
+            setError('Kon naam niet wijzigen.');
+            setLoading(false);
+        }
+    };
+
     // Helper to get accounts for a specific connection
     const getAccountsForConnection = (connectionId: string) => {
         return connectedAccounts.filter(acc => acc.connection_id === connectionId);
@@ -189,6 +226,28 @@ export const SettingsPage: React.FC = () => {
                                             onChange={handleToggleConfirmTags}
                                         />
                                     </div>
+
+                                    <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <Text className="font-medium text-gray-900">Developer Mode</Text>
+                                                <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded border border-gray-200 font-mono">DEV</span>
+                                            </div>
+                                            <Text className="text-sm text-gray-500">
+                                                Toon technische debug informatie onderaan het scherm.
+                                            </Text>
+                                        </div>
+                                        <Switch
+                                            checked={localStorage.getItem('vve_debug_mode') === 'true'}
+                                            onChange={(val) => {
+                                                localStorage.setItem('vve_debug_mode', String(val));
+                                                // Dispatch event so DebugBar picks it up immediately
+                                                window.dispatchEvent(new Event('storage'));
+                                                // Force re-render of this switch (simple way)
+                                                window.location.reload();
+                                            }}
+                                        />
+                                    </div>
                                 </div>
                             </Card>
                         </div>
@@ -205,14 +264,85 @@ export const SettingsPage: React.FC = () => {
                                             Beheer hier uw koppelingen met banken.
                                         </Text>
                                     </div>
-                                    <Button
-                                        size="md"
-                                        color="indigo"
-                                        onClick={handleConnect}
-                                        loading={loading}
-                                    >
-                                        Nieuwe Koppeling
-                                    </Button>
+                                    <div className="flex space-x-2">
+                                        <Button
+                                            size="md"
+                                            color="gray"
+                                            variant="secondary"
+                                            icon={BoltIcon}
+                                            onClick={() => {
+                                                if (connectedAccounts.length > 0) {
+                                                    setSelectedSeedAccount(connectedAccounts[0].id);
+                                                }
+                                                setSeedModalOpen(true);
+                                            }}
+                                        >
+                                            Seed Demo Data
+                                        </Button>
+
+                                        {/* Seed Modal */}
+                                        <Dialog open={seedModalOpen} onClose={() => setSeedModalOpen(false)} static={true}>
+                                            <DialogPanel>
+                                                <Title className="mb-4">Demo Data Genereren</Title>
+                                                <Text className="mb-4">
+                                                    Dit maakt 10 leden en 100 transacties aan.<br />
+                                                    Kies op welke rekening de transacties moeten worden bijgeschreven.
+                                                </Text>
+
+                                                <div className="mb-6">
+                                                    <label className="text-sm font-medium text-gray-700 mb-1 block">
+                                                        Selecteer Rekening
+                                                    </label>
+                                                    <Select
+                                                        value={selectedSeedAccount}
+                                                        onValueChange={setSelectedSeedAccount}
+                                                        placeholder="Kies een rekening..."
+                                                    >
+                                                        {connectedAccounts.map(acc => (
+                                                            <SelectItem key={acc.id} value={acc.id} icon={CreditCardIcon}>
+                                                                {acc.name} ({acc.iban})
+                                                            </SelectItem>
+                                                        ))}
+                                                    </Select>
+                                                    {connectedAccounts.length === 0 && (
+                                                        <Text className="text-xs text-red-500 mt-1">Geen rekeningen gevonden. Er wordt een nieuwe aangemaakt.</Text>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex justify-end space-x-2">
+                                                    <Button variant="secondary" onClick={() => setSeedModalOpen(false)}>
+                                                        Annuleren
+                                                    </Button>
+                                                    <Button
+                                                        loading={loading}
+                                                        onClick={async () => {
+                                                            setLoading(true);
+                                                            try {
+                                                                const res = await seedFinanceData(selectedSeedAccount || undefined);
+                                                                alert(`Succes! ${res.members} leden en ${res.transactions} transacties aangemaakt.`);
+                                                                await refreshBankData();
+                                                                setSeedModalOpen(false);
+                                                            } catch (e: any) {
+                                                                alert('Fout: ' + e.message);
+                                                            } finally {
+                                                                setLoading(false);
+                                                            }
+                                                        }}
+                                                    >
+                                                        Start Genereren
+                                                    </Button>
+                                                </div>
+                                            </DialogPanel>
+                                        </Dialog>
+                                        <Button
+                                            size="md"
+                                            color="indigo"
+                                            onClick={handleConnect}
+                                            loading={loading}
+                                        >
+                                            Nieuwe Koppeling
+                                        </Button>
+                                    </div>
                                 </div>
 
                                 {error && (
@@ -272,7 +402,39 @@ export const SettingsPage: React.FC = () => {
                                                                     size="lg"
                                                                 />
                                                                 <div>
-                                                                    <Text className="font-medium text-gray-900">{acc.name || 'Naamloze Rekening'}</Text>
+                                                                    {editingAccountId === acc.id ? (
+                                                                        <div className="flex items-center space-x-2">
+                                                                            <TextInput
+                                                                                value={tempAccountName}
+                                                                                onChange={(e) => setTempAccountName(e.target.value)}
+                                                                                className="max-w-xs"
+                                                                            />
+                                                                            <Button
+                                                                                size="xs"
+                                                                                variant="secondary"
+                                                                                color="green"
+                                                                                icon={CheckIcon}
+                                                                                onClick={() => handleSaveName(acc.id)}
+                                                                            />
+                                                                            <Button
+                                                                                size="xs"
+                                                                                variant="secondary"
+                                                                                color="red"
+                                                                                icon={XMarkIcon}
+                                                                                onClick={() => setEditingAccountId(null)}
+                                                                            />
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex items-center space-x-2">
+                                                                            <Text className="font-medium text-gray-900">{acc.name || 'Naamloze Rekening'}</Text>
+                                                                            <button
+                                                                                className="text-gray-400 hover:text-blue-600"
+                                                                                onClick={() => handleStartEditing(acc)}
+                                                                            >
+                                                                                <PencilIcon className="h-4 w-4" />
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
                                                                     <Text className="text-sm font-mono text-gray-500">{acc.iban}</Text>
                                                                 </div>
                                                             </div>
@@ -296,6 +458,31 @@ export const SettingsPage: React.FC = () => {
                                                                         </SelectItem>
                                                                     </Select>
                                                                 </div>
+
+                                                                <Button
+                                                                    size="xs"
+                                                                    variant="secondary"
+                                                                    color="red"
+                                                                    title="Verwijder alle transacties van deze rekening"
+                                                                    icon={TrashIcon}
+                                                                    onClick={async () => {
+                                                                        if (confirm(`Weet u zeker dat u alle transacties van ${acc.name} (${acc.iban}) wilt verwijderen?`)) {
+                                                                            try {
+                                                                                setLoading(true);
+                                                                                await bankService.deleteAccountTransactions(acc.id);
+                                                                                await refreshBankData(); // Refresh to update balances if we tracked that, or just to be safe
+                                                                                alert('Transacties verwijderd.');
+                                                                            } catch (e: any) {
+                                                                                console.error(e);
+                                                                                alert('Fout: ' + e.message);
+                                                                            } finally {
+                                                                                setLoading(false);
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    Leegmaken
+                                                                </Button>
                                                             </div>
                                                         </div>
                                                     ))}
@@ -309,6 +496,53 @@ export const SettingsPage: React.FC = () => {
                                         ))}
                                     </div>
                                 )}
+                            </Card>
+
+
+                            {/* Danger Zone */}
+                            <Card className="border-l-4 border-red-500">
+                                <Title className="text-red-700 flex items-center gap-2 mb-2">
+                                    <ExclamationTriangleIcon className="h-6 w-6" />
+                                    Danger Zone
+                                </Title>
+                                <Text className="text-gray-600 mb-4">
+                                    Deze acties zijn onomkeerbaar. Wees voorzichtig.
+                                </Text>
+
+                                <div className="p-4 bg-red-50 rounded-md border border-red-100 flex justify-between items-center bg-opacity-50">
+                                    <div>
+                                        <Text className="font-bold text-red-900">Reset Financiële Koppelingen</Text>
+                                        <Text className="text-xs text-red-800">
+                                            Verwijder **alle** koppelingen tussen leden en bankrekeningnummers.<br />
+                                            Alle transacties worden weer "Onbekend".
+                                        </Text>
+                                    </div>
+                                    <Button
+                                        color="red"
+                                        variant="primary"
+                                        onClick={async () => {
+                                            if (confirm('WAARSCHUWING: Dit verwijdert ALLE koppelingen tussen leden en IBANs voor de hele VvE. Weet u dit zeker?')) {
+                                                if (confirm('Echt zeker? Dit kan niet ongedaan worden gemaakt.')) {
+                                                    try {
+                                                        setLoading(true);
+                                                        await memberService.resetAllFinanceLinks(
+                                                            (await memberService.getCurrentProfile())?.vve_id || ''
+                                                        );
+                                                        alert('Alle koppelingen zijn verwijderd.');
+                                                        await refreshBankData();
+                                                    } catch (e: any) {
+                                                        console.error(e);
+                                                        alert('Fout: ' + e.message);
+                                                    } finally {
+                                                        setLoading(false);
+                                                    }
+                                                }
+                                            }
+                                        }}
+                                    >
+                                        Reset Alles
+                                    </Button>
+                                </div>
                             </Card>
                         </div>
                     </TabPanel>
@@ -331,7 +565,7 @@ export const SettingsPage: React.FC = () => {
                         </div>
                     </TabPanel>
                 </TabPanels>
-            </TabGroup>
-        </div>
+            </TabGroup >
+        </div >
     );
 };

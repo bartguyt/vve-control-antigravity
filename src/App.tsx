@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage';
 import { MemberListPage } from './features/members/MemberListPage';
+import { MemberDetailPage } from './features/members/MemberDetailPage';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { RoleProtectedRoute } from './components/layout/RoleProtectedRoute';
 import { SidebarLayout } from './components/layout/SidebarLayout';
@@ -9,15 +10,15 @@ import { DocumentListPage } from './features/documents/DocumentListPage';
 import { AgendaPage } from './features/agenda/AgendaPage';
 import { SettingsPage } from './features/settings/SettingsPage';
 import { BankAccountPage } from './features/finance/BankAccountPage';
+import { TasksPage } from './features/tasks/TasksPage';
+import { SuppliersPage } from './features/suppliers/SuppliersPage';
 import {
   AccountingPage,
   MemberContributionPage,
   VotingPage,
-  NotificationsPage,
-  TasksPage,
-  SuppliersPage,
-  AssignmentsPage
+  NotificationsPage
 } from './features/placeholders/PlaceholderPages';
+import { AssignmentsPage } from './features/assignments/AssignmentsPage';
 import { AdminDashboardPage } from './features/admin/AdminDashboardPage';
 
 // ... other imports
@@ -33,9 +34,10 @@ function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route element={<SidebarLayout />}>
-            {/* Public/General Member Routes */}
+            {/* Dashboard & Core Features */}
             <Route path="/" element={<OverviewPage />} />
             <Route path="/members" element={<MemberListPage />} />
+            <Route path="/members/:id" element={<MemberDetailPage />} />
             <Route path="/documents" element={<DocumentListPage />} />
             <Route path="/agenda" element={<AgendaPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
@@ -50,9 +52,14 @@ function App() {
 
             {/* Technical Committee (Maintenance) Routes */}
             <Route element={<RoleProtectedRoute allowedRoles={['board', 'tech_comm', 'admin', 'manager']} />}>
-              <Route path="/tasks" element={<TasksPage />} />
+              {/* The original /tasks route is moved below */}
               <Route path="/suppliers" element={<SuppliersPage />} />
               <Route path="/assignments" element={<AssignmentsPage />} />
+            </Route>
+
+            {/* New Tasks Route with broader access */}
+            <Route element={<RoleProtectedRoute allowedRoles={['admin', 'manager', 'board', 'tech_comm', 'member']} />}>
+              <Route path="tasks" element={<TasksPage />} />
             </Route>
 
             {/* Board / Admin Settings */}

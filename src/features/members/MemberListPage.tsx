@@ -25,9 +25,11 @@ import {
     UserIcon,
     PencilSquareIcon,
     UserPlusIcon,
-    ArrowRightOnRectangleIcon
+    ArrowRightOnRectangleIcon,
+    EyeIcon
 } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
+import { PageHeader } from '../../components/ui/PageHeader';
 
 export const MemberListPage: React.FC = () => {
     const [members, setMembers] = useState<Profile[]>([]);
@@ -49,7 +51,11 @@ export const MemberListPage: React.FC = () => {
                 memberService.getCurrentProfile()
             ]);
             setMembers(data);
-            setUserRole(profile?.role || null);
+
+            // Get role from vve_memberships
+            const currentVveMembership = profile?.vve_memberships?.find(m => m.vve_id === profile.vve_id);
+            const effectiveRole = profile?.is_super_admin ? 'admin' : (currentVveMembership?.role || null);
+            setUserRole(effectiveRole);
         } catch (error) {
             console.error('Error loading members:', error);
         } finally {
@@ -69,31 +75,30 @@ export const MemberListPage: React.FC = () => {
         member.email?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const canManageMembers = userRole === 'admin' || userRole === 'bestuur';
+
+
+    const canManageMembers = (() => {
+        if (!members.length) return false;
+        // Check current profile from service (or refetch if needed, but we don't store full profile in state here easily without refactor)
+        // Better: store the current user's role in state after load
+        return userRole === 'admin' || userRole === 'bestuur' || userRole === 'manager' || userRole === 'board';
+    })();
 
     return (
         <div className="p-6 space-y-6">
-            <Flex justifyContent="between" alignItems="center">
-                <Title>Ledenoverzicht</Title>
-                <div className="flex space-x-2">
-                    {canManageMembers && (
-                        <Button
-                            icon={UserPlusIcon}
-                            onClick={() => setIsAddModalOpen(true)}
-                            color="indigo"
-                        >
-                            Lid Toevoegen
-                        </Button>
-                    )}
-                    <Button
-                        icon={ArrowRightOnRectangleIcon}
-                        variant="secondary"
-                        onClick={handleLogout}
-                    >
-                        Uitloggen
-                    </Button>
-                </div>
-            </Flex>
+            <PageHeader
+                title="Ledenoverzicht"
+                onAdd={canManageMembers ? () => setIsAddModalOpen(true) : undefined}
+                addLabel="Lid Toevoegen"
+            >
+                <Button
+                    icon={ArrowRightOnRectangleIcon}
+                    variant="secondary"
+                    onClick={handleLogout}
+                >
+                    Uitloggen
+                </Button>
+            </PageHeader>
 
             <Card>
                 <div className="mb-4">
@@ -127,7 +132,11 @@ export const MemberListPage: React.FC = () => {
                                 </TableRow>
                             ) : (
                                 filteredMembers.map((member) => (
-                                    <TableRow key={member.id}>
+                                    <TableRow
+                                        key={member.id}
+                                        onClick={() => navigate(`/members/${member.id}`)}
+                                        className="hover:bg-gray-50 cursor-pointer transition-colors"
+                                    >
                                         <TableCell>
                                             <Flex justifyContent="start" className="space-x-3">
                                                 <div className="p-2 bg-indigo-50 rounded-full">
@@ -160,9 +169,20 @@ export const MemberListPage: React.FC = () => {
                                                     size="xs"
                                                     variant="light"
                                                     icon={PencilSquareIcon}
-                                                    onClick={() => setEditProfile(member)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setEditProfile(member);
+                                                    }}
                                                 >
                                                     Bewerk
+                                                </Button>
+                                                <Button
+                                                    size="xs"
+                                                    variant="secondary"
+                                                    icon={EyeIcon}
+                                                    onClick={() => navigate(`/members/${member.id}`)}
+                                                >
+                                                    Bekijk
                                                 </Button>
                                             </TableCell>
                                         )}

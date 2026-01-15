@@ -24,6 +24,7 @@ import {
     ArrowDownTrayIcon,
     PlusIcon
 } from '@heroicons/react/24/outline';
+import { PageHeader } from '../../components/ui/PageHeader';
 
 export const DocumentListPage: React.FC = () => {
     const [documents, setDocuments] = useState<Document[]>([]);
@@ -43,8 +44,12 @@ export const DocumentListPage: React.FC = () => {
                 documentService.getDocuments(),
                 memberService.getCurrentProfile()
             ]);
-            setDocuments(docs);
-            setUserRole(profile?.role || null);
+
+
+            // Get role from vve_memberships
+            const currentVveMembership = profile?.vve_memberships?.find(m => m.vve_id === profile.vve_id);
+            const effectiveRole = profile?.is_super_admin ? 'admin' : (currentVveMembership?.role || null);
+            setUserRole(effectiveRole);
         } catch (error) {
             console.error('Error loading documents:', error);
         } finally {
@@ -82,20 +87,16 @@ export const DocumentListPage: React.FC = () => {
         });
     };
 
+    const canUpload = userRole === 'admin' || userRole === 'bestuur' || userRole === 'manager' || userRole === 'board';
+
     return (
         <div className="p-6 space-y-6">
-            <Flex justifyContent="between" alignItems="center">
-                <Title>Documenten</Title>
-                {userRole === 'admin' && (
-                    <Button
-                        icon={PlusIcon}
-                        onClick={() => setIsUploadModalOpen(true)}
-                        color="indigo"
-                    >
-                        Nieuw Document
-                    </Button>
-                )}
-            </Flex>
+            <PageHeader
+                title="Documenten"
+                description="Beheer en deel documenten veilig binnen de VvE."
+                onAdd={canUpload ? () => setIsUploadModalOpen(true) : undefined}
+                addLabel="Nieuw Document"
+            />
 
             <Card>
                 <div className="mb-4">

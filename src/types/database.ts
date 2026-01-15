@@ -29,13 +29,15 @@ export interface Profile {
         confirm_tags?: boolean;
     };
 
+    first_name: string;
+    last_name: string;
     lid_nummer: string | null;
     bouwnummer: string | null;
     straat: string | null;
     huisnummer: string | null;
     postcode: string | null;
     stad: string | null;
-    telefoon: string | null;
+    telefoonnummer: string | null;
     email: string | null;
     updated_at: string | null;
     created_at: string;
