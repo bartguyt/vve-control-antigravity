@@ -12,9 +12,9 @@ import { SettingsPage } from './features/settings/SettingsPage';
 import { BankAccountPage } from './features/finance/BankAccountPage';
 import { TasksPage } from './features/tasks/TasksPage';
 import { SuppliersPage } from './features/suppliers/SuppliersPage';
+import { ContributionsPage } from './features/finance/ContributionsPage';
 import {
   AccountingPage,
-  MemberContributionPage,
   VotingPage,
   NotificationsPage
 } from './features/placeholders/PlaceholderPages';
@@ -47,7 +47,7 @@ function App() {
             <Route element={<RoleProtectedRoute allowedRoles={['board', 'audit_comm', 'admin', 'manager']} />}>
               <Route path="/bank" element={<BankAccountPage />} />
               <Route path="/accounting" element={<AccountingPage />} />
-              <Route path="/contributions" element={<MemberContributionPage />} />
+              <Route path="/contributions" element={<ContributionsPage />} />
             </Route>
 
             {/* Technical Committee (Maintenance) Routes */}

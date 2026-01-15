@@ -24,7 +24,6 @@ export const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => {
 
 export const BankAccountPage = () => <PlaceholderPage title="Bankrekening" />;
 export const AccountingPage = () => <PlaceholderPage title="Boekhouding" />;
-export const MemberContributionPage = () => <PlaceholderPage title="Ledenbijdrage" />;
 export const VotingPage = () => <PlaceholderPage title="Stemmen" />;
 export const NotificationsPage = () => <PlaceholderPage title="Meldingen" />;
 export const TasksPage = () => <PlaceholderPage title="Taken" />;

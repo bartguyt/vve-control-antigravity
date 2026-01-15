@@ -127,7 +127,6 @@ export const SettingsPage: React.FC = () => {
         columns: memberColumns,
         toggleColumn: toggleMemberColumn,
         reorderColumns: reorderMemberColumns,
-        setColumns: setMemberColumns
     } = useColumnConfig('member_column_config', DEFAULT_MEMBER_COLUMNS);
 
     const sensors = useSensors(
@@ -547,6 +546,7 @@ export const SettingsPage: React.FC = () => {
                                                                             <TextInput
                                                                                 value={tempAccountName}
                                                                                 onChange={(e) => setTempAccountName(e.target.value)}
+                                                                                onBlur={() => handleSaveName(acc.id)}
                                                                                 className="max-w-xs"
                                                                             />
                                                                             <Button

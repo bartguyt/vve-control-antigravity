@@ -46,3 +46,60 @@ export interface Profile {
     // Joined Data
     bank_transactions?: [{ count: number }];
 }
+
+export interface ContributionYear {
+    id: string;
+    vve_id: string;
+    year: number;
+    default_amount: number;
+    base_rate_name: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface MemberContribution {
+    id: string;
+    vve_id: string;
+    year_id: string;
+    member_id: string;
+    amount_due: number;
+    amount_paid: number;
+    status: 'PENDING' | 'PARTIAL' | 'PAID' | 'OVERDUE';
+    notes?: string;
+    created_at: string;
+    updated_at: string;
+
+    // Joins
+    year?: ContributionYear;
+    member?: Profile;
+    group?: ContributionGroup;
+}
+
+export interface ContributionGroup {
+    id: string;
+    vve_id: string;
+    name: string;
+    created_at: string;
+}
+
+export interface ContributionYearAmount {
+    id: string;
+    year_id: string;
+    group_id: string;
+    amount: number;
+    created_at: string;
+
+    // Join
+    group?: ContributionGroup;
+}
+
+export interface MemberGroupAssignment {
+    id: string;
+    member_id: string;
+    group_id: string;
+    assigned_at: string;
+
+    // Join
+    group?: ContributionGroup;
+}
