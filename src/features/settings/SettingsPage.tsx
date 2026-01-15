@@ -17,9 +17,29 @@ import {
     DialogPanel,
     TextInput
 } from '@tremor/react';
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+} from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+    useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
 import { memberService } from '../members/memberService';
 import { supabase } from '../../lib/supabase';
 import { bankService } from '../finance/bankService';
+import { useColumnConfig } from '../../hooks/useColumnConfig';
+import type { ColumnConfig } from '../../hooks/useColumnConfig';
 import {
     BuildingLibraryIcon,
     UserIcon,
@@ -32,14 +52,101 @@ import {
     BoltIcon,
     PencilIcon,
     CheckIcon,
-    XMarkIcon
+    XMarkIcon,
+    ListBulletIcon,
+    Bars3Icon
 } from '@heroicons/react/24/outline';
 import { useSearchParams } from 'react-router-dom';
 import { seedFinanceData } from '../../utils/seedFinance';
 
+const DEFAULT_MEMBER_COLUMNS: ColumnConfig[] = [
+    { id: 'name', label: 'Naam', visible: true, order: 0 },
+    { id: 'address', label: 'Adres', visible: true, order: 1 },
+    { id: 'lid_nummer', label: 'Lid Nummer', visible: true, order: 2 },
+    { id: 'email', label: 'Email', visible: true, order: 3 },
+    { id: 'role', label: 'Rol', visible: true, order: 4 },
+];
+
+function SortableItem(props: { id: string; column: ColumnConfig; onToggle: (id: string) => void }) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({ id: props.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 shadow-sm mb-2">
+            <div className="flex items-center gap-3">
+                <div {...attributes} {...listeners} className="cursor-move text-gray-400 hover:text-gray-600">
+                    <Bars3Icon className="h-5 w-5" />
+                </div>
+                <Text className="font-medium text-gray-900">{props.column.label}</Text>
+            </div>
+            <Switch
+                checked={props.column.visible}
+                onChange={() => props.onToggle(props.column.id)}
+            />
+        </div>
+    );
+}
+
 export const SettingsPage: React.FC = () => {
     const [selectedTab, setSelectedTab] = useState(0);
     const [searchParams, setSearchParams] = useSearchParams();
+
+    // Sync tab with URL
+    useEffect(() => {
+        const tabParam = searchParams.get('tab');
+        if (tabParam) {
+            const index = parseInt(tabParam, 10);
+            if (!isNaN(index)) {
+                setSelectedTab(index);
+            }
+        }
+    }, [searchParams]);
+
+    // Update URL when tab changes
+    const handleTabChange = (index: number) => {
+        setSelectedTab(index);
+        setSearchParams(prev => {
+            const newParams = new URLSearchParams(prev);
+            newParams.set('tab', index.toString());
+            return newParams;
+        });
+    };
+
+    // Member Columns State
+    const {
+        columns: memberColumns,
+        toggleColumn: toggleMemberColumn,
+        reorderColumns: reorderMemberColumns,
+        setColumns: setMemberColumns
+    } = useColumnConfig('member_column_config', DEFAULT_MEMBER_COLUMNS);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    function handleDragEnd(event: DragEndEvent) {
+        const { active, over } = event;
+
+        if (active.id !== over?.id) {
+            const oldIndex = memberColumns.findIndex((c) => c.id === active.id);
+            const newIndex = memberColumns.findIndex((c) => c.id === over?.id);
+            const newOrder = arrayMove(memberColumns, oldIndex, newIndex);
+            reorderMemberColumns(newOrder);
+        }
+    }
 
     // Bank state
     const [loading, setLoading] = useState(false);
@@ -201,9 +308,10 @@ export const SettingsPage: React.FC = () => {
                 <Text>Beheer uw VvE instellingen en koppelingen.</Text>
             </header>
 
-            <TabGroup index={selectedTab} onIndexChange={setSelectedTab}>
+            <TabGroup index={selectedTab} onIndexChange={handleTabChange}>
                 <TabList>
                     <Tab icon={Cog6ToothIcon}>Algemeen</Tab>
+                    <Tab icon={ListBulletIcon}>Lijsten & Weergave</Tab>
                     <Tab icon={BuildingLibraryIcon}>Bankkoppelingen</Tab>
                     <Tab icon={UserIcon}>Profiel</Tab>
                 </TabList>
@@ -249,6 +357,38 @@ export const SettingsPage: React.FC = () => {
                                         />
                                     </div>
                                 </div>
+                            </Card>
+                        </div>
+                    </TabPanel>
+
+                    {/* List Settings */}
+                    <TabPanel>
+                        <div className="mt-6">
+                            <Card>
+                                <Title className="mb-4">Ledenlijst Configuratie</Title>
+                                <Text className="mb-6">Sleep de kolommen om de volgorde te wijzigen. Gebruik de schakelaar om kolommen te verbergen.</Text>
+
+                                <DndContext
+                                    sensors={sensors}
+                                    collisionDetection={closestCenter}
+                                    onDragEnd={handleDragEnd}
+                                >
+                                    <SortableContext
+                                        items={memberColumns.map(c => c.id)}
+                                        strategy={verticalListSortingStrategy}
+                                    >
+                                        <div className="max-w-xl">
+                                            {memberColumns.map((col) => (
+                                                <SortableItem
+                                                    key={col.id}
+                                                    id={col.id}
+                                                    column={col}
+                                                    onToggle={toggleMemberColumn}
+                                                />
+                                            ))}
+                                        </div>
+                                    </SortableContext>
+                                </DndContext>
                             </Card>
                         </div>
                     </TabPanel>

@@ -12,6 +12,7 @@ export interface VveMembership {
     vve_id: string;
     role: AppRole;
     created_at: string;
+    is_active?: boolean;
     vves?: VvE; // Joined VvE data
 }
 
@@ -41,4 +42,7 @@ export interface Profile {
     email: string | null;
     updated_at: string | null;
     created_at: string;
+
+    // Joined Data
+    bank_transactions?: [{ count: number }];
 }

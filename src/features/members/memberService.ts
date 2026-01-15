@@ -6,7 +6,7 @@ export const memberService = {
     async getMembers() {
         const { data, error } = await supabase
             .from('profiles')
-            .select('*')
+            .select('*, bank_transactions(count)')
             .order('lid_nummer', { ascending: true });
 
         if (error) throw error;
@@ -66,10 +66,22 @@ export const memberService = {
             action: 'update',
             targetType: 'member',
             targetId: data.id,
-            description: `Lid gewijzigd: ${data.straat} ${data.huisnummer}`
+            description: `Lid gewijzigd: ${data.first_name} ${data.last_name}`
         });
 
         return data as Profile;
+    },
+
+    async updateMembership(membershipId: string, updates: { role?: string; is_active?: boolean }) {
+        const { data, error } = await supabase
+            .from('vve_memberships')
+            .update(updates)
+            .eq('id', membershipId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
     },
 
     async updatePreferences(prefs: { confirm_tags?: boolean }) {
@@ -199,8 +211,7 @@ export const memberService = {
     },
 
     async deleteMember(memberId: string) {
-        // Log activity before delete (since data will be gone)
-        // Ideally we fetch first to get name for log, but simplistic approach here
+        // Log activity before delete
         await activityService.logActivity({
             action: 'delete',
             targetType: 'member',
@@ -214,5 +225,48 @@ export const memberService = {
             .eq('id', memberId);
 
         if (error) throw error;
+    },
+
+    async bulkDeleteMembers(memberIds: string[]) {
+        // 1. Check for linked transactions for ANY of these members
+        // We want to find which IDs are UNSAFE (have transactions)
+        const { data: transactions, error: txError } = await supabase
+            .from('bank_transactions')
+            .select('linked_member_id')
+            .in('linked_member_id', memberIds);
+
+        if (txError) throw txError;
+
+        const unsafeIds = new Set(transactions?.map(t => t.linked_member_id));
+        const safeIds = memberIds.filter(id => !unsafeIds.has(id));
+
+        if (safeIds.length === 0) {
+            return { deleted: [], failed: memberIds };
+        }
+
+        // 2. Log activity for safe deletes
+        // We'll just log a summary or iterate. Iterating is clearer for history.
+        // Parallel logging might be okay.
+        await Promise.all(safeIds.map(id =>
+            activityService.logActivity({
+                action: 'delete',
+                targetType: 'member',
+                targetId: id,
+                description: `Lid verwijderd (bulk)`
+            })
+        ));
+
+        // 3. Delete safe members (Cascade should handle memberships/ibans)
+        const { error: deleteError } = await supabase
+            .from('profiles')
+            .delete()
+            .in('id', safeIds);
+
+        if (deleteError) throw deleteError;
+
+        return {
+            deleted: safeIds,
+            failed: Array.from(unsafeIds)
+        };
     }
 };

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { memberService } from './memberService';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import type { Profile } from '../../types/database';
-import { Button, TextInput, Title } from '@tremor/react';
+import { Button, TextInput, Title, Select, SelectItem, Switch } from '@tremor/react';
 
 interface Props {
     isOpen: boolean;
@@ -19,9 +19,13 @@ export const EditMemberModal: React.FC<Props> = ({ isOpen, onClose, onMemberUpda
     const [postcode, setPostcode] = useState(member.postcode || '');
     const [stad, setStad] = useState(member.stad || '');
     const [email, setEmail] = useState(member.email || '');
-    const [telefoon, setTelefoon] = useState(member.telefoon || '');
+    const [telefoon, setTelefoon] = useState(member.telefoonnummer || ''); // Field name correction
     const [firstName, setFirstName] = useState(member.first_name || '');
     const [lastName, setLastName] = useState(member.last_name || '');
+
+    // Membership specific fields
+    const [role, setRole] = useState(member.vve_memberships?.[0]?.role || 'member');
+    const [isActive, setIsActive] = useState(member.vve_memberships?.[0]?.is_active ?? true);
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -45,6 +49,7 @@ export const EditMemberModal: React.FC<Props> = ({ isOpen, onClose, onMemberUpda
         setError(null);
 
         try {
+            // 1. Update Profile
             await memberService.updateMember(member.id, {
                 lid_nummer: lidNummer,
                 bouwnummer: bouwnummer,
@@ -53,10 +58,20 @@ export const EditMemberModal: React.FC<Props> = ({ isOpen, onClose, onMemberUpda
                 postcode,
                 stad,
                 email: email || null,
-                telefoon: telefoon || null,
+                telefoonnummer: telefoon || null, // Field name correction
                 first_name: firstName,
                 last_name: lastName
             });
+
+            // 2. Update Membership (Role / Active)
+            // We assume 1 VvE for now, or just update the one we loaded.
+            const membership = member.vve_memberships?.[0];
+            if (membership) {
+                await memberService.updateMembership(membership.id, {
+                    role,
+                    is_active: isActive
+                });
+            }
 
             onMemberUpdated();
             onClose();
@@ -124,6 +139,30 @@ export const EditMemberModal: React.FC<Props> = ({ isOpen, onClose, onMemberUpda
                                         onValueChange={setLastName}
                                         placeholder="Jansen"
                                     />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Rol</label>
+                                    <Select
+                                        value={role}
+                                        onValueChange={(val) => setRole(val as any)}
+                                        enableClear={false}
+                                    >
+                                        <SelectItem value="member">Lid</SelectItem>
+                                        <SelectItem value="board">Bestuur</SelectItem>
+                                        <SelectItem value="audit_comm">Kascommissie</SelectItem>
+                                        <SelectItem value="tech_comm">Technische Cie</SelectItem>
+                                        {/* Admin cannot be set here usually, but let's allow if user is super admin? For now simple roles. */}
+                                    </Select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <Switch checked={isActive} onChange={setIsActive} />
+                                        <span className="text-sm text-gray-600">{isActive ? 'Actief' : 'Inactief'}</span>
+                                    </div>
                                 </div>
                             </div>
 

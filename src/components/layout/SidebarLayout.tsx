@@ -26,6 +26,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { Listbox, Transition, Menu } from '@headlessui/react';
 import { DebugBar } from '../common/DebugBar';
+import { Toaster } from 'sonner';
 
 interface NavItem {
     name: string;
@@ -378,6 +379,7 @@ export const SidebarLayout: React.FC = () => {
                     <Outlet />
                 </div>
             </main>
+            <Toaster position="top-right" richColors />
             <DebugBar />
         </div>
     );
