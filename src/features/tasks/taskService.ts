@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase';
-import type { Database } from '../../types/database';
+// import type { Database } from '../../types/database';
 
 export type TaskStatus = 'open' | 'scheduled' | 'completed' | 'cancelled';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';

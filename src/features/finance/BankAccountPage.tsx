@@ -17,16 +17,23 @@ import {
     TableCell,
     Badge,
     Button,
-    Icon
+    Select,
+    SelectItem
 } from '@tremor/react';
 import { bankService } from './bankService';
 import { useNavigate } from 'react-router-dom';
-import { PlusIcon, ArrowsRightLeftIcon, CreditCardIcon, CircleStackIcon, LinkIcon, UserIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, ArrowsRightLeftIcon, CreditCardIcon, CircleStackIcon, LinkIcon, UserIcon, TagIcon } from '@heroicons/react/24/outline';
 import { LinkTransactionModal } from './LinkTransactionModal';
 import { memberService } from '../members/memberService';
+import { vveService } from '../../lib/vve';
+import { contributionService } from './contributionService';
+import { bookkeepingService } from './bookkeepingService';
+import type { BankTransaction, Profile, ContributionYear, FinancialCategory } from '../../types/database';
+import { toast } from 'sonner';
 
 interface Account {
     id: string;
+    vve_id: string;
     name: string;
     iban: string;
     balance_amount: number;
@@ -34,19 +41,8 @@ interface Account {
     account_type?: 'PAYMENT' | 'SAVINGS';
 }
 
-interface Transaction {
-    id: string;
-    booking_date: string;
-    creditor_name?: string;
-    debtor_name?: string;
-    description: string;
-    amount: number;
-    currency: string;
-    transaction_type: string;
-    linked_member_id?: string | null;
-    linked_member_name?: string; // We will fetch/join this
-    counterparty_iban?: string;
-    vve_id: string; // Needed for bulk update
+interface Transaction extends BankTransaction {
+    linked_member_name?: string;
 }
 
 export const BankAccountPage: React.FC = () => {
@@ -55,27 +51,29 @@ export const BankAccountPage: React.FC = () => {
     const [selectedAccountIndex, setSelectedAccountIndex] = useState(0);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
+    const [userProfile, setUserProfile] = useState<Profile | null>(null);
+    const [years, setYears] = useState<ContributionYear[]>([]);
+    const [categories, setCategories] = useState<FinancialCategory[]>([]);
 
     const [linkModalOpen, setLinkModalOpen] = useState(false);
     const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
-    useEffect(() => {
-        loadAccounts();
-    }, []);
-
-    useEffect(() => {
-        if (accounts.length > 0) {
-            loadTransactions(accounts[selectedAccountIndex].id);
-        }
-    }, [accounts, selectedAccountIndex]);
-
-    const loadAccounts = async () => {
+    const loadInitialData = async () => {
+        setLoading(true);
         try {
-            setLoading(true);
-            const data = await bankService.getAccounts();
-            setAccounts(data);
+            const [accs, profile, yearsData, catsData] = await Promise.all([
+                bankService.getAccounts(),
+                vveService.getCurrentProfile(),
+                contributionService.getYears(),
+                bookkeepingService.getCategories()
+            ]);
+            setAccounts(accs);
+            setUserProfile(profile);
+            setYears(yearsData);
+            setCategories(catsData);
         } catch (error) {
-            console.error('Error loading accounts:', error);
+            console.error('Error loading initial data:', error);
+            toast.error('Error loading account data');
         } finally {
             setLoading(false);
         }
@@ -84,13 +82,7 @@ export const BankAccountPage: React.FC = () => {
     const loadTransactions = async (accountId: string) => {
         try {
             const data = await bankService.getTransactions(accountId);
-            // Fetch names for linked members? Or join in query safely.
-            // For now, let's load members to a map or assume data contains enough info if we used valid join.
-            // But currently getTransactions doesn't join profiles. Ideally update service to join.
-            // Alternatively, load members and map.
-
-            // For demo speed, I'll fetch members once and map names.
-            const members = await memberService.getMembers(); // Cached ideally
+            const members = await memberService.getMembers();
             const dataWithNames = data.map((tx: any) => ({
                 ...tx,
                 linked_member_name: tx.linked_member_id
@@ -101,8 +93,19 @@ export const BankAccountPage: React.FC = () => {
             setTransactions(dataWithNames);
         } catch (error) {
             console.error('Error loading transactions:', error);
+            toast.error('Error loading transactions');
         }
     };
+
+    useEffect(() => {
+        loadInitialData();
+    }, []);
+
+    useEffect(() => {
+        if (accounts.length > 0) {
+            loadTransactions(accounts[selectedAccountIndex].id);
+        }
+    }, [accounts, selectedAccountIndex]);
 
     const openLinkModal = (tx: Transaction) => {
         setSelectedTx(tx);
@@ -115,20 +118,85 @@ export const BankAccountPage: React.FC = () => {
         }
     };
 
+    const handleCategoryChange = async (txId: string, categoryId: string | null) => {
+        try {
+            // Find selected category object
+            // const cat = categories.find(c => c.id === categoryId);
+
+            // For backward compatibility / display, we might want to store the name in 'category' column if we still use it.
+            // But relying on financial_category_id is better.
+            // bankService.updateTransactionCategory handles both.
+
+            await bankService.updateTransactionCategory(txId, null, null, categoryId);
+            toast.success('Categorie bijgewerkt');
+            loadTransactions(accounts[selectedAccountIndex].id);
+        } catch (error) {
+            toast.error('Kon categorie niet bijwerken');
+        }
+    };
+
+    const handleYearChange = async (txId: string, yearId: string | null) => {
+        try {
+            // Find current tx to get its current financial category
+            const tx = transactions.find(t => t.id === txId);
+            if (!tx) return;
+
+            await bankService.updateTransactionCategory(txId, null, yearId, tx.financial_category_id);
+            toast.success('Boekjaar bijgewerkt');
+            loadTransactions(accounts[selectedAccountIndex].id);
+        } catch (error) {
+            toast.error('Kon boekjaar niet bijwerken');
+        }
+    };
+
+    const handleAutoCategorize = async () => {
+        const accountId = accounts[selectedAccountIndex]?.id;
+        if (!accountId) return;
+
+        setLoading(true);
+        try {
+            const count = await bankService.autoCategorizeAccountTransactions(accountId);
+            toast.success(`${count} transacties automatisch gecategoriseerd`);
+            await loadTransactions(accountId);
+        } catch (error) {
+            toast.error('Fout bij automatisch categoriseren');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const canEditCategory = (() => {
+        if (!userProfile) return false;
+        if (userProfile.is_super_admin) return true;
+        const currentVveId = accounts[selectedAccountIndex]?.vve_id;
+        const membership = userProfile.vve_memberships?.find(m => m.vve_id === currentVveId);
+        return membership && ['admin', 'bestuur'].includes(membership.role);
+    })();
+
     if (loading) {
-        return <div className="p-6">Laden...</div>;
+        return <div className="p-6 text-center text-gray-500">Bankoverzicht laden...</div>;
     }
 
     if (accounts.length === 0) {
         return (
             <div className="p-6">
-                <Title>Bankrekeningen</Title>
-                <Text>Er zijn nog geen bankrekeningen gekoppeld.</Text>
-                <div className="mt-6">
-                    <Button icon={PlusIcon} onClick={() => navigate('/settings')}>
-                        Rekening toevoegen
+                <header className="flex justify-between items-center mb-6">
+                    <div>
+                        <Title>Bankrekeningen</Title>
+                        <Text>Er zijn nog geen bankrekeningen gekoppeld.</Text>
+                    </div>
+                    <Button variant="secondary" icon={ArrowsRightLeftIcon} onClick={() => navigate('/settings')}>
+                        Instellingen
                     </Button>
-                </div>
+                </header>
+                <Card className="text-center p-12">
+                    <Text>Configureer uw bankkoppeling in de instellingen om transacties te bekijken.</Text>
+                    <div className="mt-6">
+                        <Button icon={PlusIcon} onClick={() => navigate('/settings')}>
+                            Rekening toevoegen
+                        </Button>
+                    </div>
+                </Card>
             </div>
         );
     }
@@ -180,14 +248,27 @@ export const BankAccountPage: React.FC = () => {
 
                                 {/* Transactions Table */}
                                 <Card>
-                                    <Title>Transacties</Title>
+                                    <div className="flex justify-between items-center">
+                                        <Title>Transacties</Title>
+                                        {canEditCategory && (
+                                            <Button
+                                                size="xs"
+                                                variant="secondary"
+                                                icon={TagIcon}
+                                                onClick={handleAutoCategorize}
+                                            >
+                                                Automatisch categoriseren
+                                            </Button>
+                                        )}
+                                    </div>
                                     <Table className="mt-4">
                                         <TableHead>
                                             <TableRow>
                                                 <TableHeaderCell>Datum</TableHeaderCell>
                                                 <TableHeaderCell>Tegenpartij</TableHeaderCell>
-                                                <TableHeaderCell>Omschrijving</TableHeaderCell>
+                                                <TableHeaderCell>Betaalkenmerk</TableHeaderCell>
                                                 <TableHeaderCell>Bedrag</TableHeaderCell>
+                                                <TableHeaderCell>Type</TableHeaderCell>
                                                 <TableHeaderCell>Lid</TableHeaderCell>
                                             </TableRow>
                                         </TableHead>
@@ -221,6 +302,72 @@ export const BankAccountPage: React.FC = () => {
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell>
+                                                        {canEditCategory ? (
+                                                            <>
+                                                                <Select
+                                                                    value={tx.financial_category_id || ''}
+                                                                    onValueChange={(val) => handleCategoryChange(tx.id, val || null)}
+                                                                    placeholder="Kies type..."
+                                                                    enableClear
+                                                                    className="w-40"
+                                                                >
+                                                                    {categories.map((cat) => (
+                                                                        <SelectItem key={cat.id} value={cat.id}>
+                                                                            {cat.name}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </Select>
+
+                                                                {/* Show year selector if category is 'Ledenbijdrage' (check by name or code if we have it) */}
+                                                                {(() => {
+                                                                    const selectedCat = categories.find(c => c.id === tx.financial_category_id);
+                                                                    if (selectedCat && selectedCat.name.toLowerCase() === 'ledenbijdrage') {
+                                                                        return (
+                                                                            <div className="mt-2">
+                                                                                <Select
+                                                                                    value={tx.contribution_year_id || ''}
+                                                                                    onValueChange={(val) => handleYearChange(tx.id, val || null)}
+                                                                                    placeholder="Boekjaar (auto)"
+                                                                                    enableClear
+                                                                                    className="w-40"
+                                                                                >
+                                                                                    {years.map(y => (
+                                                                                        <SelectItem key={y.id} value={y.id}>
+                                                                                            {y.year}
+                                                                                        </SelectItem>
+                                                                                    ))}
+                                                                                </Select>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    return null;
+                                                                })()}
+                                                            </>
+                                                        ) : (
+                                                            tx.financial_category_id ? (
+                                                                <div className="flex flex-col items-start gap-1">
+                                                                    <Badge size="xs" color="gray" icon={TagIcon}>
+                                                                        {categories.find(c => c.id === tx.financial_category_id)?.name || 'Onbekend'}
+                                                                    </Badge>
+                                                                    {/* Show year badge if category is Ledenbijdrage */}
+                                                                    {(() => {
+                                                                        const catName = categories.find(c => c.id === tx.financial_category_id)?.name.toLowerCase();
+                                                                        if (catName === 'ledenbijdrage' && tx.contribution_year_id) {
+                                                                            return (
+                                                                                <Badge size="xs" color="blue">
+                                                                                    {years.find(y => y.id === tx.contribution_year_id)?.year}
+                                                                                </Badge>
+                                                                            );
+                                                                        }
+                                                                        return null;
+                                                                    })()}
+                                                                </div>
+                                                            ) : (
+                                                                <Text className="text-xs text-gray-400 italic">Nog te beoordelen</Text>
+                                                            )
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
                                                         {tx.linked_member_id ? (
                                                             <div className="flex items-center space-x-2">
                                                                 <Badge size="xs" color="blue" icon={UserIcon}>
@@ -248,7 +395,9 @@ export const BankAccountPage: React.FC = () => {
                                             ))}
                                             {transactions.length === 0 && (
                                                 <TableRow>
-                                                    <TableCell colSpan={5}>Geen transacties gevonden.</TableCell>
+                                                    <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                                                        Geen transacties gevonden voor deze rekening.
+                                                    </TableCell>
                                                 </TableRow>
                                             )}
                                         </TableBody>

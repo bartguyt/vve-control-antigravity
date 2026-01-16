@@ -24,8 +24,7 @@ import {
     ChevronLeftIcon,
     ChevronRightIcon,
     MapPinIcon,
-    ClockIcon,
-    PlusIcon
+    ClockIcon
 } from '@heroicons/react/24/outline';
 import { PageHeader } from '../../components/ui/PageHeader';
 

@@ -32,13 +32,13 @@ export interface Profile {
 
     first_name: string;
     last_name: string;
-    lid_nummer: string | null;
-    bouwnummer: string | null;
-    straat: string | null;
-    huisnummer: string | null;
-    postcode: string | null;
-    stad: string | null;
-    telefoonnummer: string | null;
+    member_number: string | null;
+    building_number: string | null;
+    street: string | null;
+    house_number: string | null;
+    zip_code: string | null;
+    city: string | null;
+    phone_number: string | null;
     email: string | null;
     updated_at: string | null;
     created_at: string;
@@ -102,4 +102,92 @@ export interface MemberGroupAssignment {
 
     // Join
     group?: ContributionGroup;
+}
+
+export interface BankTransaction {
+    id: string;
+    vve_id: string;
+    account_id: string;
+    external_id: string;
+    booking_date: string;
+    amount: number;
+    description: string;
+    creditor_name?: string;
+    debtor_name?: string;
+    counterparty_iban?: string;
+    transaction_type: string;
+    linked_member_id?: string | null;
+    linked_assignment_id?: string | null;
+    linked_document_id?: string | null;
+    linked_supplier_id?: string | null;
+    category?: string | null;
+    contribution_year_id?: string | null;
+    financial_category_id?: string | null;
+    created_at: string;
+}
+
+export interface LedgerAccount {
+    id: string;
+    vve_id: string;
+    code: number;
+    name: string;
+    type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+    is_system: boolean;
+}
+
+export interface FinancialCategory {
+    id: string;
+    vve_id: string;
+    name: string;
+    ledger_account_id: string;
+    ledger_account?: LedgerAccount;
+    vat_percentage: number;
+}
+
+export interface JournalEntry {
+    id: string;
+    vve_id: string;
+    transaction_id?: string;
+    booking_date: string;
+    description: string;
+    status: 'DRAFT' | 'POSTED';
+    lines?: JournalEntryLine[];
+}
+
+export interface JournalEntryLine {
+    id: string;
+    journal_entry_id: string;
+    ledger_account_id: string;
+    ledger_account?: LedgerAccount;
+    debit: number;
+    credit: number;
+    description?: string;
+}
+
+export interface Supplier {
+    id: string;
+    vve_id: string;
+    name: string;
+    category: string;
+    notes?: string;
+    default_financial_category_id?: string | null;
+}
+
+export interface Document {
+    id: string;
+    vve_id: string;
+    title: string;
+    file_url: string;
+}
+
+export interface Assignment {
+    id: string;
+    vve_id: string;
+    title: string;
+    description: string;
+    amount?: number;
+    supplier_id?: string | null;
+    document_id?: string | null;
+    created_at: string;
+    scheduled_date?: string | null;
 }

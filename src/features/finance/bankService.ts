@@ -1,5 +1,7 @@
-// src/features/finance/bankService.ts
 import { supabase } from '../../lib/supabase';
+// import type { BankTransaction } from '../../types/database';
+import { vveService } from '../../lib/vve';
+import { bookkeepingService } from './bookkeepingService';
 
 // Mock specific logic
 export const MOCK_REQUISITION_ID = 'mock-req-id-' + Math.random().toString(36).substring(7);
@@ -27,24 +29,7 @@ export const bankService = {
 
     // 3. Link & Generate Data (The "Magic" Step)
     async saveConnection(requisitionId: string, status: string = 'LINKED') {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select(`
-                vve_memberships!fk_memberships_profiles_userid (
-                    vve_id
-                )
-            `)
-            .eq('user_id', user.id)
-            .single();
-
-        if (!profile?.vve_memberships?.[0]?.vve_id) return;
-
-        const vveId = profile.vve_memberships[0].vve_id;
-
-        if (!profile) return;
+        const vveId = await vveService.getCurrentVveId();
 
         // A. Create Connection
         const { data: connection, error: connError } = await supabase
@@ -134,25 +119,7 @@ export const bankService = {
 
     // 4. List Accounts (Fetch from DB)
     async getAccounts() {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return [];
-
-        // Find the most recent active connection for this user's VvE
-        // Simplified: just get accounts linked to user's VvE
-        // Find the most recent active connection for this user's VvE
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select(`
-                vve_memberships!fk_memberships_profiles_userid (
-                    vve_id
-                )
-            `)
-            .eq('user_id', user.id)
-            .single();
-
-        if (!profile?.vve_memberships?.[0]?.vve_id) return [];
-
-        const vveId = profile.vve_memberships[0].vve_id;
+        const vveId = await vveService.getCurrentVveId();
 
         const { data } = await supabase
             .from('bank_accounts')
@@ -173,6 +140,42 @@ export const bankService = {
         return data || [];
     },
 
+    async autoCategorizeAccountTransactions(accountId: string) {
+        // Find transactions for this account that are linked but uncategorized
+        const { data, error } = await supabase
+            .from('bank_transactions')
+            .select('*')
+            .eq('account_id', accountId)
+            .is('category', null)
+            .not('linked_member_id', 'is', null);
+
+        if (error) throw error;
+
+        let count = 0;
+        if (data && data.length > 0) {
+            const vveId = data[0].vve_id;
+            // Find 'Ledenbijdrage' category
+            const { data: cat } = await supabase
+                .from('financial_categories')
+                .select('id')
+                .eq('vve_id', vveId)
+                .ilike('name', 'Ledenbijdrage')
+                .single();
+
+            if (cat) {
+                for (const tx of data) {
+                    const desc = (tx.description || '').toLowerCase();
+                    const remittance = (tx.remittance_information || '').toLowerCase();
+                    if (desc.includes('bijdrage') || remittance.includes('bijdrage')) {
+                        await this.updateTransactionCategory(tx.id, null, null, cat.id);
+                        count++;
+                    }
+                }
+            }
+        }
+        return count;
+    },
+
     // 6. Delete Connection
     async deleteConnection(connectionId?: string) {
         // If no specific connection ID, find the latest relevant one or handles UI logic
@@ -189,23 +192,101 @@ export const bankService = {
 
     // 7. Link Transaction to Member
     async linkTransaction(transactionId: string, memberId: string) {
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('bank_transactions')
             .update({ linked_member_id: memberId })
+            .eq('id', transactionId)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        // Auto-categorize if description contains 'bijdrage'
+        if (data && !data.financial_category_id) {
+            const desc = (data.description || '').toLowerCase();
+            const remittance = (data.remittance_information || '').toLowerCase();
+            if (desc.includes('bijdrage') || remittance.includes('bijdrage')) {
+                // Find 'Ledenbijdrage' category
+                const { data: cat } = await supabase
+                    .from('financial_categories')
+                    .select('id')
+                    .eq('vve_id', data.vve_id)
+                    .ilike('name', 'Ledenbijdrage') // Case insensitive match
+                    .single();
+
+                if (cat) {
+                    await this.updateTransactionCategory(transactionId, null, null, cat.id);
+                }
+            }
+        }
+    },
+
+    async updateTransactionCategory(
+        transactionId: string,
+        categoryId: string | null, // OLD STRING CATEGORY
+        contributionYearId: string | null = null,
+        financialCategoryId: string | null = null,
+        linkedAssignmentId: string | null = null,
+        linkedDocumentId: string | null = null,
+        linkedSupplierId: string | null = null
+    ) {
+        const updates: any = {
+            contribution_year_id: contributionYearId
+        };
+
+        if (financialCategoryId) updates.financial_category_id = financialCategoryId;
+        if (linkedAssignmentId) updates.linked_assignment_id = linkedAssignmentId;
+        if (linkedDocumentId) updates.linked_document_id = linkedDocumentId;
+        if (linkedSupplierId) updates.linked_supplier_id = linkedSupplierId;
+
+        if (categoryId) updates.category = categoryId;
+
+        const { error } = await supabase
+            .from('bank_transactions')
+            .update(updates)
             .eq('id', transactionId);
 
         if (error) throw error;
+
+        // Auto-Book to Journal if a financial category is set
+        if (financialCategoryId) {
+            await bookkeepingService.createEntryFromTransaction(transactionId, financialCategoryId);
+        }
     },
 
     // 7b. Bulk Link by IBAN
     async linkTransactionsByIban(iban: string, vveId: string, memberId: string) {
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('bank_transactions')
             .update({ linked_member_id: memberId })
             .eq('counterparty_iban', iban)
-            .eq('vve_id', vveId); // Scope to VvE just to be safe
+            .eq('vve_id', vveId)
+            .select();
 
         if (error) throw error;
+
+        // Auto-categorize matched transactions
+        if (data && data.length > 0) {
+            // Find 'Ledenbijdrage' category
+            const { data: cat } = await supabase
+                .from('financial_categories')
+                .select('id')
+                .eq('vve_id', vveId)
+                .ilike('name', 'Ledenbijdrage')
+                .single();
+
+            if (cat) {
+                for (const tx of data) {
+                    if (!tx.financial_category_id) {
+                        const desc = (tx.description || '').toLowerCase();
+                        const remittance = (tx.remittance_information || '').toLowerCase();
+                        if (desc.includes('bijdrage') || remittance.includes('bijdrage')) {
+                            await this.updateTransactionCategory(tx.id, null, null, cat.id);
+                        }
+                    }
+                }
+            }
+        }
     },
 
     // 8. Get Member Transactions

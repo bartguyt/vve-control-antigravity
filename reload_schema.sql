@@ -1,5 +1,2 @@
--- Force PostgREST schema cache reload
+-- Run this if you get "Could not find column in schema cache" errors after a migration
 NOTIFY pgrst, 'reload schema';
-
--- Alternative: Comment on table often forces reload
-COMMENT ON TABLE public.assignments IS 'Assignments module table - Reload Trigger';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Title, Text, Card, Grid, Badge, Button, TextInput, Icon } from '@tremor/react';
+import { Title, Text, Card, Grid, Badge, TextInput } from '@tremor/react';
 import { PencilIcon, TrashIcon, MapPinIcon, PhoneIcon, EnvelopeIcon, GlobeAltIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { supplierService, type Supplier } from './supplierService';
 import { memberService } from '../members/memberService';

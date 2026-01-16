@@ -7,20 +7,12 @@ import { EditMemberModal } from './EditMemberModal';
 import { toast } from 'sonner';
 import {
     Card,
-    Table,
-    TableHead,
-    TableRow,
-    TableHeaderCell,
-    TableBody,
-    TableCell,
     Text,
     Badge,
     Button,
-    TextInput,
     Icon
 } from '@tremor/react';
 import {
-    MagnifyingGlassIcon,
     UserIcon,
     PencilSquareIcon,
     ArrowRightOnRectangleIcon,
@@ -30,35 +22,26 @@ import {
 } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageHeader';
-import { useColumnConfig } from '../../hooks/useColumnConfig';
+import { DataTable } from '../../components/ui/DataTable';
+import { type ColumnConfig } from '../../hooks/useColumnConfig';
 
 export const MemberListPage: React.FC = () => {
     const [members, setMembers] = useState<Profile[]>([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editProfile, setEditProfile] = useState<Profile | null>(null);
     const [userRole, setUserRole] = useState<string | null>(null);
-    const [hoveredRow, setHoveredRow] = useState<string | null>(null);
-    const [sortColumn, setSortColumn] = useState<string>('name');
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-
-    const DEFAULT_COLUMNS = [
-        { id: 'name', label: 'Naam', visible: true, order: 0 },
-        { id: 'address', label: 'Adres', visible: true, order: 1 },
-        { id: 'lid_nummer', label: 'Lid Nummer', visible: true, order: 2 },
-        { id: 'email', label: 'Email', visible: true, order: 3 },
-        { id: 'role', label: 'Rol', visible: true, order: 4 },
-    ];
-
-    const { columns } = useColumnConfig('member_column_config', DEFAULT_COLUMNS);
-
-    const visibleColumns = columns.filter(c => c.visible).sort((a, b) => a.order - b.order);
-
-    // Bulk Selection State
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     const navigate = useNavigate();
+
+    const DEFAULT_MEMBER_COLUMNS: ColumnConfig[] = [
+        { id: 'name', label: 'Name', visible: true, order: 0 },
+        { id: 'address', label: 'Address', visible: true, order: 1 },
+        { id: 'member_number', label: 'Member Number', visible: true, order: 2 },
+        { id: 'email', label: 'Email', visible: true, order: 3 },
+        { id: 'role', label: 'Role', visible: true, order: 4 },
+    ];
 
     useEffect(() => {
         loadMembers();
@@ -72,7 +55,6 @@ export const MemberListPage: React.FC = () => {
             ]);
             setMembers(data);
 
-            // Get role from vve_memberships
             const currentVveMembership = profile?.vve_memberships?.find(m => m.vve_id === profile.vve_id);
             const effectiveRole = profile?.is_super_admin ? 'admin' : (currentVveMembership?.role || null);
             setUserRole(effectiveRole);
@@ -84,91 +66,19 @@ export const MemberListPage: React.FC = () => {
         }
     };
 
-    const handleSort = (column: string) => {
-        if (sortColumn === column) {
-            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortColumn(column);
-            setSortDirection('asc');
-        }
-    };
-
-    const renderSortIcon = (column: string) => {
-        if (sortColumn !== column) return null;
-        return <span className="ml-1 text-gray-500">{sortDirection === 'asc' ? '↑' : '↓'}</span>;
-    };
-
     const handleLogout = async () => {
         await supabase.auth.signOut();
         navigate('/login');
     };
 
-    const filteredMembers = members.filter(member =>
-        member.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.straat?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.huisnummer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.stad?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.email?.toLowerCase().includes(searchTerm.toLowerCase())
-    ).sort((a, b) => {
-        let valA = '';
-        let valB = '';
-
-        switch (sortColumn) {
-            case 'name':
-                valA = `${a.first_name} ${a.last_name}`.trim().toLowerCase();
-                valB = `${b.first_name} ${b.last_name}`.trim().toLowerCase();
-                break;
-            case 'address':
-                valA = `${a.straat} ${a.huisnummer} ${a.stad}`.trim().toLowerCase();
-                valB = `${b.straat} ${b.huisnummer} ${b.stad}`.trim().toLowerCase();
-                break;
-            case 'lid_nummer':
-                valA = (a.lid_nummer || '').toLowerCase();
-                valB = (b.lid_nummer || '').toLowerCase();
-                break;
-            case 'email':
-                valA = (a.email || '').toLowerCase();
-                valB = (b.email || '').toLowerCase();
-                break;
-            case 'role':
-                valA = (a.role || '').toLowerCase();
-                valB = (b.role || '').toLowerCase();
-                break;
-            default:
-                return 0;
-        }
-
-        if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
-        if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-        return 0;
-    });
-
     const canManageMembers = (() => {
-        if (!members.length) return false;
-        return userRole === 'admin' || userRole === 'bestuur' || userRole === 'manager' || userRole === 'board';
+        const adminRoles = ['admin', 'manager', 'board'];
+        return userRole && adminRoles.includes(userRole);
     })();
 
     const isMemberDeletable = (member: Profile) => {
         const txCount = member.bank_transactions?.[0]?.count || 0;
         return txCount === 0;
-    };
-
-    const toggleSelection = (id: string) => {
-        const newSet = new Set(selectedIds);
-        if (newSet.has(id)) newSet.delete(id);
-        else newSet.add(id);
-        setSelectedIds(newSet);
-    };
-
-    const toggleAll = () => {
-        const deletableMembers = filteredMembers.filter(m => isMemberDeletable(m));
-
-        if (selectedIds.size === deletableMembers.length && selectedIds.size > 0) {
-            setSelectedIds(new Set());
-        } else {
-            setSelectedIds(new Set(deletableMembers.map(m => m.id)));
-        }
     };
 
     const handleDeleteMember = async (member: Profile) => {
@@ -262,179 +172,90 @@ export const MemberListPage: React.FC = () => {
             </PageHeader>
 
             <Card>
-                <div className="mb-4">
-                    <TextInput
-                        icon={MagnifyingGlassIcon}
-                        placeholder="Zoek op naam, adres, stad of email..."
-                        value={searchTerm}
-                        onValueChange={setSearchTerm}
-                    />
-                </div>
+                <DataTable
+                    data={members}
+                    columns={DEFAULT_MEMBER_COLUMNS}
+                    storageKey="member_column_config"
+                    searchPlaceholder="Search members..."
+                    loading={loading}
+                    onRowClick={(m) => navigate(`/members/${m.id}`)}
+                    selectable={!!canManageMembers}
+                    selectedIds={selectedIds}
+                    onSelectionChange={setSelectedIds}
+                    isItemDeletable={isMemberDeletable}
+                    onSettingsClick={() => navigate('/settings?tab=1')}
+                    renderCell={(member, colId) => {
+                        const effectiveRole = member.vve_memberships?.[0]?.role || 'member';
+                        switch (colId) {
+                            case 'name':
+                                return (
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-8 w-8 rounded-full bg-indigo-50 flex items-center justify-center">
+                                            <UserIcon className="h-4 w-4 text-indigo-600" />
+                                        </div>
+                                        <Text className="font-medium text-gray-900">{member.first_name} {member.last_name}</Text>
+                                    </div>
+                                );
+                            case 'address':
+                                return (
+                                    <>
+                                        <Text>{member.street} {member.house_number}</Text>
+                                        <Text className="text-xs text-gray-500">{member.zip_code} {member.city}</Text>
+                                    </>
+                                );
+                            case 'member_number':
+                                return <Text>{member.member_number || '-'}</Text>;
+                            case 'email':
+                                return <Text>{member.email || '-'}</Text>;
+                            case 'role':
+                                return (
+                                    <Badge color={effectiveRole === 'admin' ? 'red' : 'gray'}>
+                                        {effectiveRole}
+                                    </Badge>
+                                );
+                            default:
+                                return null;
+                        }
+                    }}
+                    renderActions={canManageMembers ? (member) => (
+                        <div className="flex items-center justify-end space-x-2 h-8">
+                            <Button
+                                size="xs"
+                                variant="light"
+                                icon={PencilSquareIcon}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditProfile(member);
+                                }}
+                            >
+                                Edit
+                            </Button>
 
-                {loading ? (
-                    <Text className="text-center py-8">Laden...</Text>
-                ) : (
-                    <Table>
-                        <TableHead>
-                            <TableRow>
-                                {canManageMembers && (
-                                    <TableHeaderCell className="w-10">
-                                        <input
-                                            type="checkbox"
-                                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                            checked={
-                                                filteredMembers.length > 0 &&
-                                                selectedIds.size === filteredMembers.filter(m => isMemberDeletable(m)).length
-                                            }
-                                            onChange={toggleAll}
-                                        />
-                                    </TableHeaderCell>
-                                )}
-
-                                {visibleColumns.map(col => (
-                                    <TableHeaderCell
-                                        key={col.id}
-                                        onClick={() => handleSort(col.id)}
-                                        className="cursor-pointer"
-                                    >
-                                        {col.label} {renderSortIcon(col.id)}
-                                    </TableHeaderCell>
-                                ))}
-                                {canManageMembers && <TableHeaderCell>Acties</TableHeaderCell>}
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {filteredMembers.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="text-center">
-                                        <Text>Geen leden gevonden</Text>
-                                    </TableCell>
-                                </TableRow>
+                            {!isMemberDeletable(member) ? (
+                                <div className="p-1 cursor-help" title="Cannot delete (linked transactions)">
+                                    <Icon
+                                        icon={ShieldCheckIcon}
+                                        variant="simple"
+                                        color="slate"
+                                        size="sm"
+                                    />
+                                </div>
                             ) : (
-                                filteredMembers.map((member) => {
-                                    const deletable = isMemberDeletable(member);
-                                    return (
-                                        <TableRow
-                                            key={member.id}
-                                            onClick={() => navigate(`/members/${member.id}`)}
-                                            onMouseEnter={() => setHoveredRow(member.id)}
-                                            onMouseLeave={() => setHoveredRow(null)}
-                                            className="hover:bg-gray-50 cursor-pointer transition-colors"
-                                        >
-                                            {canManageMembers && (
-                                                <TableCell onClick={(e) => e.stopPropagation()}>
-                                                    <input
-                                                        type="checkbox"
-                                                        className={`rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 ${!deletable ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                                                        checked={selectedIds.has(member.id)}
-                                                        onChange={() => toggleSelection(member.id)}
-                                                        disabled={!deletable}
-                                                    />
-                                                </TableCell>
-                                            )}
-
-                                            {visibleColumns.map(col => {
-                                                switch (col.id) {
-                                                    case 'name':
-                                                        return (
-                                                            <TableCell key={col.id}>
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className="p-2 bg-indigo-50 rounded-full">
-                                                                        <Icon icon={UserIcon} size="xs" color="indigo" variant="simple" />
-                                                                    </div>
-                                                                    <div>
-                                                                        <Text className="font-medium text-gray-900">
-                                                                            {member.first_name} {member.last_name}
-                                                                        </Text>
-                                                                    </div>
-                                                                </div>
-                                                            </TableCell>
-                                                        );
-                                                    case 'address':
-                                                        return (
-                                                            <TableCell key={col.id}>
-                                                                <Text>
-                                                                    {member.straat} {member.huisnummer}
-                                                                </Text>
-                                                                <Text className="text-xs">
-                                                                    {member.postcode} {member.stad}
-                                                                </Text>
-                                                            </TableCell>
-                                                        );
-                                                    case 'lid_nummer':
-                                                        return (
-                                                            <TableCell key={col.id}>
-                                                                <Text>{member.lid_nummer || '-'}</Text>
-                                                            </TableCell>
-                                                        );
-                                                    case 'email':
-                                                        return (
-                                                            <TableCell key={col.id}>
-                                                                <Text>{member.email || '-'}</Text>
-                                                            </TableCell>
-                                                        );
-                                                    case 'role':
-                                                        return (
-                                                            <TableCell key={col.id}>
-                                                                <Badge color={member.role === 'admin' ? 'red' : 'gray'}>
-                                                                    {member.role}
-                                                                </Badge>
-                                                            </TableCell>
-                                                        );
-                                                    default:
-                                                        return <TableCell key={col.id}><Text>-</Text></TableCell>;
-                                                }
-                                            })}
-                                            {canManageMembers && (
-                                                <TableCell onClick={(e) => e.stopPropagation()}>
-                                                    <div className="flex items-center space-x-2 h-8">
-                                                        <Button
-                                                            size="xs"
-                                                            variant="light"
-                                                            icon={PencilSquareIcon}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setEditProfile(member);
-                                                            }}
-                                                        >
-                                                            Bewerk
-                                                        </Button>
-
-                                                        {!deletable ? (
-                                                            <div className="p-1 cursor-help" title="Kan niet verwijderd worden (gekoppelde transacties)">
-                                                                <Icon
-                                                                    icon={ShieldCheckIcon}
-                                                                    variant="simple"
-                                                                    color="slate"
-                                                                    size="sm"
-                                                                />
-                                                            </div>
-                                                        ) : (
-                                                            <div className={`transition-opacity duration-200 ${hoveredRow === member.id ? 'opacity-100' : 'opacity-0'}`}>
-                                                                <Button
-                                                                    size="xs"
-                                                                    variant="light"
-                                                                    color="red"
-                                                                    icon={TrashIcon}
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleDeleteMember(member);
-                                                                    }}
-                                                                />
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-                                            )}
-                                        </TableRow>
-                                    );
-                                })
+                                <Button
+                                    size="xs"
+                                    variant="light"
+                                    color="red"
+                                    icon={TrashIcon}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteMember(member);
+                                    }}
+                                />
                             )}
-                        </TableBody>
-                    </Table>
-                )}
-
-            </Card >
+                        </div>
+                    ) : undefined}
+                />
+            </Card>
 
             <AddMemberModal
                 isOpen={isAddModalOpen}
@@ -442,16 +263,14 @@ export const MemberListPage: React.FC = () => {
                 onMemberAdded={loadMembers}
             />
 
-            {
-                editProfile && (
-                    <EditMemberModal
-                        isOpen={true}
-                        onClose={() => setEditProfile(null)}
-                        onMemberUpdated={loadMembers}
-                        member={editProfile}
-                    />
-                )
-            }
-        </div >
+            {editProfile && (
+                <EditMemberModal
+                    isOpen={true}
+                    onClose={() => setEditProfile(null)}
+                    onMemberUpdated={loadMembers}
+                    member={editProfile}
+                />
+            )}
+        </div>
     );
 };

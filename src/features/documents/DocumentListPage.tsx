@@ -11,8 +11,6 @@ import {
     TableBody,
     TableCell,
     Text,
-    Title,
-    Button,
     TextInput,
     Icon,
     Flex
@@ -21,8 +19,7 @@ import {
     MagnifyingGlassIcon,
     DocumentIcon,
     TrashIcon,
-    ArrowDownTrayIcon,
-    PlusIcon
+    ArrowDownTrayIcon
 } from '@heroicons/react/24/outline';
 import { PageHeader } from '../../components/ui/PageHeader';
 
@@ -40,10 +37,11 @@ export const DocumentListPage: React.FC = () => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [docs, profile] = await Promise.all([
+            const [docsData, profile] = await Promise.all([
                 documentService.getDocuments(),
                 memberService.getCurrentProfile()
             ]);
+            setDocuments(docsData);
 
 
             // Get role from vve_memberships

@@ -136,7 +136,7 @@ export const seedFinanceData = async () => {
 
         if (isMatch) {
             counterIban = memberIbans[Math.floor(Math.random() * memberIbans.length)];
-            const uniqueNameIdx = Math.floor(Math.random() * firstNames.length); // Use deterministic index for consistency if we had real mapping, but random is okay for now
+            // const uniqueNameIdx = Math.floor(Math.random() * firstNames.length);
             counterName = `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
         } else {
             // Pick from the RECURRING external pool 90% of the time, 10% completely random

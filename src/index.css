@@ -1,3 +1,59 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    @apply text-gray-900 bg-gray-50;
+  }
+
+  .dark :root {
+    @apply text-gray-100 bg-slate-950;
+  }
+
+  body {
+    @apply antialiased text-gray-900 bg-gray-50 dark:bg-slate-950 dark:text-gray-200;
+  }
+}
+
+/* Force Tremor Dark Mode Overrides */
+.dark .tremor-Card-root,
+.dark .tremor-Metric-root,
+.dark .tremor-Text-root,
+.dark .tremor-Title-root,
+.dark .tremor-TextInput-root,
+.dark .tremor-Select-root {
+  @apply border-slate-800/60 ring-slate-800/60;
+}
+
+.dark .tremor-Text-root,
+.dark .tremor-Title-root {
+  @apply text-gray-200;
+}
+
+.dark .tremor-Card-root {
+  @apply bg-slate-900 ring-1 ring-slate-800 shadow-none;
+}
+
+.dark .tremor-TextInput-input,
+.dark .tremor-Select-button {
+  @apply bg-slate-900 border-slate-700 text-gray-100;
+}
+
+/* Custom Scrollbar for Dark Mode */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  @apply bg-slate-950;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  @apply bg-slate-700 rounded-full;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-600;
+}

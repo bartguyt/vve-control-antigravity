@@ -1,11 +1,10 @@
-import React, { Fragment, useState, useEffect } from 'react';
-import { Dialog, Transition } from '@headlessui/react';
-import { Button, TextInput, Textarea, Select, SelectItem, Title } from '@tremor/react';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import React, { useState, useEffect } from 'react';
+import { Button, TextInput, Textarea, Select, SelectItem } from '@tremor/react';
 import { assignmentService, type Assignment, type AssignmentStatus } from './assignmentService';
 import { supplierService, type Supplier } from '../suppliers/supplierService';
 import { documentService, type Document } from '../documents/documentService';
 import { memberService } from '../members/memberService';
+import { BaseModal } from '../../components/ui/BaseModal';
 
 interface Props {
     isOpen: boolean;
@@ -69,8 +68,8 @@ export const CreateAssignmentModal: React.FC<Props> = ({ isOpen, onClose, onSucc
         }
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
         setLoading(true);
         try {
             const profile = await memberService.getCurrentProfile();
@@ -104,130 +103,98 @@ export const CreateAssignmentModal: React.FC<Props> = ({ isOpen, onClose, onSucc
     };
 
     return (
-        <Transition appear show={isOpen} as={Fragment}>
-            <Dialog as="div" className="relative z-50" onClose={onClose}>
-                <Transition.Child
-                    as={Fragment}
-                    enter="ease-out duration-300"
-                    enterFrom="opacity-0"
-                    enterTo="opacity-100"
-                    leave="ease-in duration-200"
-                    leaveFrom="opacity-100"
-                    leaveTo="opacity-0"
-                >
-                    <div className="fixed inset-0 bg-black/25" />
-                </Transition.Child>
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={assignmentToEdit ? 'Opdracht Bewerken' : 'Nieuwe Opdracht'}
+            size="lg"
+            footer={(
+                <>
+                    <Button type="button" variant="secondary" onClick={onClose}>
+                        Annuleren
+                    </Button>
+                    <Button type="button" loading={loading} disabled={!title} onClick={() => handleSubmit()}>
+                        {assignmentToEdit ? 'Opslaan' : 'Aanmaken'}
+                    </Button>
+                </>
+            )}
+        >
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Omschrijving *</label>
+                    <TextInput
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="Korte omschrijving (bijv. Dakgoot reparatie)"
+                        required
+                    />
+                </div>
 
-                <div className="fixed inset-0 overflow-y-auto">
-                    <div className="flex min-h-full items-center justify-center p-4 text-center">
-                        <Transition.Child
-                            as={Fragment}
-                            enter="ease-out duration-300"
-                            enterFrom="opacity-0 scale-95"
-                            enterTo="opacity-100 scale-100"
-                            leave="ease-in duration-200"
-                            leaveFrom="opacity-100 scale-100"
-                            leaveTo="opacity-0 scale-95"
-                        >
-                            <Dialog.Panel className="w-full max-w-lg transform overflow-visible rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                                <div className="flex justify-between items-center mb-4">
-                                    <Title>{assignmentToEdit ? 'Opdracht Bewerken' : 'Nieuwe Opdracht'}</Title>
-                                    <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
-                                        <XMarkIcon className="h-6 w-6" />
-                                    </button>
-                                </div>
-
-                                <form onSubmit={handleSubmit} className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Omschrijving *</label>
-                                        <TextInput
-                                            value={title}
-                                            onChange={(e) => setTitle(e.target.value)}
-                                            placeholder="Korte omschrijving (bijv. Dakgoot reparatie)"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Leverancier</label>
-                                            <Select value={supplierId} onValueChange={setSupplierId} placeholder="Kies leverancier...">
-                                                {suppliers.map(s => (
-                                                    <SelectItem key={s.id} value={s.id}>{s.name} ({s.category})</SelectItem>
-                                                ))}
-                                            </Select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                                            <Select value={status} onValueChange={(val) => setStatus(val as AssignmentStatus)}>
-                                                <SelectItem value="concept">Concept</SelectItem>
-                                                <SelectItem value="sent">Verzonden</SelectItem>
-                                                <SelectItem value="accepted">Geaccepteerd</SelectItem>
-                                                <SelectItem value="completed">Uitgevoerd</SelectItem>
-                                                <SelectItem value="paid">Betaald</SelectItem>
-                                                <SelectItem value="refused">Geweigerd</SelectItem>
-                                            </Select>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Bedrag (€)</label>
-                                            <TextInput
-                                                type="number"
-                                                value={amount}
-                                                onChange={(e) => setAmount(e.target.value)}
-                                                placeholder="0.00"
-                                                icon={undefined} // Can define currency icon here if imported
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Datum Uitvoering</label>
-                                            <input
-                                                type="date"
-                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                                                value={scheduledDate}
-                                                onChange={(e) => setScheduledDate(e.target.value)}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Koppel Document (Offerte/Factuur)</label>
-                                        <Select value={documentId} onValueChange={setDocumentId} placeholder="Kies document...">
-                                            {documents.map(d => (
-                                                <SelectItem key={d.id} value={d.id}>{d.title}</SelectItem>
-                                            ))}
-                                        </Select>
-                                        <p className="text-xs text-gray-500 mt-1">
-                                            Upload het bestand eerst via 'Documenten' om het hier te kiezen.
-                                        </p>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Toelichting</label>
-                                        <Textarea
-                                            value={description}
-                                            onChange={(e) => setDescription(e.target.value)}
-                                            rows={3}
-                                            placeholder="Details over de opdracht, afspraken, etc."
-                                        />
-                                    </div>
-
-                                    <div className="mt-6 flex justify-end space-x-3">
-                                        <Button type="button" variant="secondary" onClick={onClose}>
-                                            Annuleren
-                                        </Button>
-                                        <Button type="submit" loading={loading} disabled={!title}>
-                                            {assignmentToEdit ? 'Opslaan' : 'Aanmaken'}
-                                        </Button>
-                                    </div>
-                                </form>
-                            </Dialog.Panel>
-                        </Transition.Child>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Leverancier</label>
+                        <Select value={supplierId} onValueChange={setSupplierId} placeholder="Kies leverancier...">
+                            {suppliers.map(s => (
+                                <SelectItem key={s.id} value={s.id}>{s.name} ({s.category})</SelectItem>
+                            ))}
+                        </Select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <Select value={status} onValueChange={(val) => setStatus(val as AssignmentStatus)}>
+                            <SelectItem value="concept">Concept</SelectItem>
+                            <SelectItem value="sent">Verzonden</SelectItem>
+                            <SelectItem value="accepted">Geaccepteerd</SelectItem>
+                            <SelectItem value="completed">Uitgevoerd</SelectItem>
+                            <SelectItem value="paid">Betaald</SelectItem>
+                            <SelectItem value="refused">Geweigerd</SelectItem>
+                        </Select>
                     </div>
                 </div>
-            </Dialog>
-        </Transition>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Bedrag (€)</label>
+                        <TextInput
+                            type="number"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            placeholder="0.00"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Datum Uitvoering</label>
+                        <input
+                            type="date"
+                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                            value={scheduledDate}
+                            onChange={(e) => setScheduledDate(e.target.value)}
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Koppel Document (Offerte/Factuur)</label>
+                    <Select value={documentId} onValueChange={setDocumentId} placeholder="Kies document...">
+                        {documents.map(d => (
+                            <SelectItem key={d.id} value={d.id}>{d.title}</SelectItem>
+                        ))}
+                    </Select>
+                    <p className="text-xs text-gray-500 mt-1">
+                        Upload het bestand eerst via 'Documenten' om het hier te kiezen.
+                    </p>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Toelichting</label>
+                    <Textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        rows={3}
+                        placeholder="Details over de opdracht, afspraken, etc."
+                    />
+                </div>
+            </form>
+        </BaseModal>
     );
 };

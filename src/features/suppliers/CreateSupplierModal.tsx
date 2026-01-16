@@ -1,6 +1,6 @@
 import React, { Fragment, useState, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
-import { Button, TextInput, Textarea, Title } from '@tremor/react';
+import { Button, TextInput, Textarea } from '@tremor/react';
 import { memberService } from '../members/memberService';
 import { supplierService, type Supplier } from './supplierService';
 

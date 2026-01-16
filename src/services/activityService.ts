@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { vveService } from '../lib/vve';
 
 export type ActivityAction = 'create' | 'update' | 'delete' | 'login';
 export type ActivityTarget = 'member' | 'document' | 'event';
@@ -10,16 +11,7 @@ export const activityService = {
         targetId?: string;
         description: string;
     }) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return; // Silent fail if not auth'd
-
-        // Get user's Profile
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('id, vve_id')
-            .eq('user_id', user.id)
-            .single();
-
+        const profile = await vveService.getCurrentProfile();
         if (!profile) return;
 
         await supabase.from('activity_logs').insert({

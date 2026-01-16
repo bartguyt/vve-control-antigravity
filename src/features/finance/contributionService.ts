@@ -6,6 +6,7 @@ import type {
     ContributionYearAmount,
     MemberGroupAssignment
 } from '../../types/database';
+import { vveService } from '../../lib/vve';
 
 export const contributionService = {
     // --- Groups ---
@@ -27,34 +28,7 @@ export const contributionService = {
     },
 
     async createGroup(name: string): Promise<ContributionGroup> {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('No user');
-
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('vve_id')
-            .eq('id', user.id)
-            .maybeSingle();
-
-        let vveId = profile?.vve_id;
-
-        if (!vveId) {
-            // Fallback: Check memberships
-            const { data: member } = await supabase
-                .from('vve_memberships')
-                .select('vve_id')
-                .eq('user_id', user.id)
-                .limit(1)
-                .maybeSingle();
-
-            if (member?.vve_id) {
-                vveId = member.vve_id;
-                // Optional: Heal profile
-                await supabase.from('profiles').update({ vve_id: vveId }).eq('id', user.id);
-            }
-        }
-
-        if (!vveId) throw new Error('Geen VvE gevonden voor uw account.');
+        const vveId = await vveService.getCurrentVveId();
 
         const { data, error } = await supabase
             .from('contribution_groups')
@@ -324,9 +298,10 @@ export const contributionService = {
 
             const { data: txs } = await supabase
                 .from('bank_transactions')
-                .select('amount, description, booking_date')
+                .select('amount, description, booking_date, category, contribution_year_id')
                 .eq('linked_member_id', c.member_id)
-                .eq('vve_id', c.vve_id); // Safety check
+                .eq('vve_id', c.vve_id)
+                .eq('category', 'ledenbijdrage'); // Only count transactions categorized as member contribution
 
             if (!txs?.length) continue;
 
@@ -337,17 +312,19 @@ export const contributionService = {
                 const isCredit = tx.amount > 0; // Incoming money
                 if (!isCredit) continue;
 
-                const desc = (tx.description || '').toLowerCase();
-                const inYear = tx.booking_date >= startOfYear && tx.booking_date <= endOfYear;
-                const mentionsYear = desc.includes(yearString);
+                // Priority Logic:
+                // 1. If contribution_year_id is set, it MUST match the target year.
+                // 2. If contribution_year_id is NOT set, use the booking_date.
 
-                // If description mentions year, definitely count it.
-                // If generic description but in the calendar year, count it? 
-                // Let's implement BOTH for now, but maybe prioritize description.
-                // Actually, standard practice: if it mentions year, use it. If not, if it's in the year, use it unless it mentions OTHER years.
+                let matchesYear = false;
 
-                // Simple logic for V1:
-                if (mentionsYear || inYear) {
+                if (tx.contribution_year_id) {
+                    matchesYear = tx.contribution_year_id === yearId;
+                } else {
+                    matchesYear = tx.booking_date >= startOfYear && tx.booking_date <= endOfYear;
+                }
+
+                if (matchesYear) {
                     paidSum += tx.amount;
                 }
             }
@@ -441,6 +418,7 @@ export const contributionService = {
             .from('bank_transactions')
             .select('*')
             .eq('linked_member_id', memberId)
+            .eq('category', 'ledenbijdrage')
             .order('booking_date', { ascending: false });
 
         if (!txs) return [];
@@ -450,11 +428,12 @@ export const contributionService = {
             const isCredit = tx.amount > 0;
             if (!isCredit) return false;
 
-            const desc = (tx.description || '').toLowerCase();
-            const inYear = tx.booking_date >= startOfYear && tx.booking_date <= endOfYear;
-            const mentionsYear = desc.includes(yearString);
+            if (tx.contribution_year_id) {
+                return tx.contribution_year_id === yearId;
+            }
 
-            return mentionsYear || inYear;
+            const inYear = tx.booking_date >= startOfYear && tx.booking_date <= endOfYear;
+            return inYear;
         });
     }
 };

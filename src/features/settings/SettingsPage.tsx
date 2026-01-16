@@ -58,13 +58,14 @@ import {
 } from '@heroicons/react/24/outline';
 import { useSearchParams } from 'react-router-dom';
 import { seedFinanceData } from '../../utils/seedFinance';
+import { ThemeSelector } from '../../components/ui/ThemeSelector';
 
 const DEFAULT_MEMBER_COLUMNS: ColumnConfig[] = [
-    { id: 'name', label: 'Naam', visible: true, order: 0 },
-    { id: 'address', label: 'Adres', visible: true, order: 1 },
-    { id: 'lid_nummer', label: 'Lid Nummer', visible: true, order: 2 },
+    { id: 'name', label: 'Name', visible: true, order: 0 },
+    { id: 'address', label: 'Address', visible: true, order: 1 },
+    { id: 'member_number', label: 'Member Number', visible: true, order: 2 },
     { id: 'email', label: 'Email', visible: true, order: 3 },
-    { id: 'role', label: 'Rol', visible: true, order: 4 },
+    { id: 'role', label: 'Role', visible: true, order: 4 },
 ];
 
 function SortableItem(props: { id: string; column: ColumnConfig; onToggle: (id: string) => void }) {
@@ -336,6 +337,18 @@ export const SettingsPage: React.FC = () => {
 
                                     <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
                                         <div>
+                                            <Text className="font-medium text-gray-900">Thema</Text>
+                                            <Text className="text-sm text-gray-500">
+                                                Kies uw voorkeur voor de weergave.
+                                            </Text>
+                                        </div>
+                                        <div className="w-40">
+                                            <ThemeSelector />
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+                                        <div>
                                             <div className="flex items-center gap-2">
                                                 <Text className="font-medium text-gray-900">Developer Mode</Text>
                                                 <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded border border-gray-200 font-mono">DEV</span>
@@ -457,10 +470,14 @@ export const SettingsPage: React.FC = () => {
                                                         onClick={async () => {
                                                             setLoading(true);
                                                             try {
-                                                                const res = await seedFinanceData(selectedSeedAccount || undefined);
-                                                                alert(`Succes! ${res.members} leden en ${res.transactions} transacties aangemaakt.`);
-                                                                await refreshBankData();
-                                                                setSeedModalOpen(false);
+                                                                const res = await seedFinanceData();
+                                                                if (res) {
+                                                                    alert(`Succes! ${res.members} leden en ${res.transactions} transacties aangemaakt.`);
+                                                                    await refreshBankData();
+                                                                    setSeedModalOpen(false);
+                                                                } else {
+                                                                    alert('Geen VvE gevonden of er is iets misgegaan.');
+                                                                }
                                                             } catch (e: any) {
                                                                 alert('Fout: ' + e.message);
                                                             } finally {
@@ -545,7 +562,7 @@ export const SettingsPage: React.FC = () => {
                                                                         <div className="flex items-center space-x-2">
                                                                             <TextInput
                                                                                 value={tempAccountName}
-                                                                                onChange={(e) => setTempAccountName(e.target.value)}
+                                                                                onValueChange={setTempAccountName}
                                                                                 onBlur={() => handleSaveName(acc.id)}
                                                                                 className="max-w-xs"
                                                                             />
@@ -705,7 +722,7 @@ export const SettingsPage: React.FC = () => {
                         </div>
                     </TabPanel>
                 </TabPanels>
-            </TabGroup >
-        </div >
+            </TabGroup>
+        </div>
     );
 };

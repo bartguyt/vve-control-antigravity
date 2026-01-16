@@ -8,7 +8,6 @@ import {
     Card,
     Title,
     Text,
-    Metric,
     Grid,
     Col,
     Table,
@@ -89,18 +88,18 @@ export const MemberDetailPage: React.FC = () => {
                         <Title>Gegevens</Title>
                         <div className="mt-4 space-y-2">
                             <div>
-                                <Text className="font-medium">Adres</Text>
-                                <Text>{member.straat} {member.huisnummer}</Text>
-                                <Text>{member.postcode} {member.stad}</Text>
+                                <Text className="font-medium">Address</Text>
+                                <Text>{member.street} {member.house_number}</Text>
+                                <Text>{member.zip_code} {member.city}</Text>
                             </div>
                             <div>
                                 <Text className="font-medium">Contact</Text>
                                 <Text>{member.email}</Text>
-                                <Text>{member.telefoonnummer}</Text>
+                                <Text>{member.phone_number}</Text>
                             </div>
                             <div>
-                                <Text className="font-medium">Lidmaatschap</Text>
-                                <Text>Lidnummer: {member.lid_nummer}</Text>
+                                <Text className="font-medium">Member Number</Text>
+                                <Text>{member.member_number}</Text>
                                 <Badge color="blue">{member.vve_memberships?.[0]?.role || 'Lid'}</Badge>
                             </div>
                         </div>

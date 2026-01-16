@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { vveService } from '../../lib/vve';
 
 
 // Define types based on our schema
@@ -47,9 +48,14 @@ export const assignmentService = {
     },
 
     async createAssignment(assignment: Partial<Assignment>) {
+        let vve_id = assignment.vve_id;
+        if (!vve_id) {
+            vve_id = await vveService.getCurrentVveId();
+        }
+
         const { data, error } = await supabase
             .from('assignments')
-            .insert(assignment)
+            .insert({ ...assignment, vve_id })
             .select()
             .single();
 
