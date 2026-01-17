@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { memberService } from '../../features/members/memberService';
 import type { Profile } from '../../types/database';
-import { CreateVveModal } from '../../features/vve/CreateVveModal';
+import { CreateAssociationModal } from '../../features/associations/CreateAssociationModal';
 import {
     HomeIcon,
     UsersIcon,
@@ -122,22 +122,22 @@ export const SidebarLayout: React.FC = () => {
         }
     };
 
-    const handleSwitchVve = async (vveId: string) => {
-        if (!profile || profile.vve_id === vveId) return;
+    const handleSwitchAssociation = async (associationId: string) => {
+        if (!profile || profile.association_id === associationId) return;
 
         try {
             await supabase
                 .from('profiles')
-                .update({ vve_id: vveId })
+                .update({ association_id: associationId })
                 .eq('id', profile.id);
 
             window.location.reload();
         } catch (e) {
-            console.error('Failed to switch VvE', e);
+            console.error('Failed to switch Association', e);
         }
     };
 
-    const handleCreateSuccess = (_newVveId: string) => {
+    const handleCreateSuccess = (_newAssociationId: string) => {
         window.location.reload();
     };
 
@@ -146,15 +146,15 @@ export const SidebarLayout: React.FC = () => {
         navigate('/login');
     };
 
-    const activeMembership = profile?.vve_memberships?.find(m => m.vve_id === profile.vve_id);
+    const activeMembership = profile?.association_memberships?.find(m => m.association_id === profile.association_id);
     const realRole = activeMembership?.role || 'member';
 
     // Effective role is the simulated one (if set) OR the real one
     const activeRole = simulatedRole || realRole;
 
     const isSuperAdmin = profile?.is_super_admin || false;
-    const activeVveName = activeMembership?.vves?.name || 'Mijn VvE';
-    const memberships = profile?.vve_memberships || [];
+    const activeAssociationName = activeMembership?.associations?.name || 'Mijn Vereniging';
+    const memberships = profile?.association_memberships || [];
 
     const filterNavGroups = (groups: NavGroup[]) => {
         if (isSuperAdmin && !simulatedRole) {
@@ -181,7 +181,7 @@ export const SidebarLayout: React.FC = () => {
 
     return (
         <div className="flex h-screen bg-gray-50 dark:bg-slate-950 overflow-hidden">
-            <CreateVveModal
+            <CreateAssociationModal
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
                 onSuccess={handleCreateSuccess}
@@ -215,17 +215,17 @@ export const SidebarLayout: React.FC = () => {
                     </div>
 
                     <div className="space-y-3">
-                        {/* VvE Switcher */}
-                        <Listbox value={profile?.vve_id || ''} onChange={(val) => {
+                        {/* Association Switcher */}
+                        <Listbox value={profile?.association_id || ''} onChange={(val) => {
                             if (val === 'NEW') {
                                 setIsCreateModalOpen(true);
                             } else {
-                                handleSwitchVve(val);
+                                handleSwitchAssociation(val);
                             }
                         }}>
                             <div className="relative">
                                 <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-white dark:bg-slate-800 py-2 pl-3 pr-10 text-left shadow-sm border border-gray-200 dark:border-slate-700 focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white/75 sm:text-sm">
-                                    <span className="block truncate font-medium text-gray-900 dark:text-gray-100">{activeVveName}</span>
+                                    <span className="block truncate font-medium text-gray-900 dark:text-gray-100">{activeAssociationName}</span>
                                     <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
                                         <ChevronUpDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
                                     </span>
@@ -243,12 +243,12 @@ export const SidebarLayout: React.FC = () => {
                                                 className={({ active }) =>
                                                     `relative cursor-default select-none py-2 pl-10 pr-4 ${active ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-900 dark:text-indigo-100' : 'text-gray-900 dark:text-gray-100'}`
                                                 }
-                                                value={m.vve_id}
+                                                value={m.association_id}
                                             >
                                                 {({ selected }) => (
                                                     <>
                                                         <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
-                                                            {m.vves?.name || 'Naamloos'}
+                                                            {m.associations?.name || 'Naamloos'}
                                                         </span>
                                                         {selected ? (
                                                             <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-indigo-600">
@@ -269,7 +269,7 @@ export const SidebarLayout: React.FC = () => {
                                         >
                                             <div className="flex items-center">
                                                 <PlusIcon className="mr-2 h-4 w-4" />
-                                                <span className="block truncate">Nieuwe VvE</span>
+                                                <span className="block truncate">Nieuwe Vereniging</span>
                                             </div>
                                         </Listbox.Option>
                                     </Listbox.Options>

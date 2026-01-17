@@ -43,13 +43,13 @@ export const TasksPage: React.FC = () => {
         try {
             setLoading(true);
             const profile = await memberService.getCurrentProfile();
-            if (!profile?.vve_id) return;
+            if (!profile?.association_id) return;
 
-            const fetchedTasks = await taskService.getTasks(profile.vve_id);
+            const fetchedTasks = await taskService.getTasks(profile.association_id);
             setTasks(fetchedTasks);
 
             // Check permissions (Tech Comm, Board, Manager, Admin)
-            const role = profile.vve_memberships?.find(m => m.vve_id === profile.vve_id)?.role;
+            const role = profile.association_memberships?.find(m => m.association_id === profile.association_id)?.role;
             const isSuperAdmin = profile.is_super_admin;
             const hasEditRights = isSuperAdmin || ['tech_comm', 'board', 'bestuur', 'manager', 'admin'].includes(role || '');
             setCanEdit(hasEditRights);

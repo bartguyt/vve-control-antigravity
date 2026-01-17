@@ -104,7 +104,7 @@ export const OverviewPage: React.FC = () => {
         <div className="p-6 space-y-6 animate-fade-in bg-gray-50 min-h-screen">
             <header className="mb-8">
                 <Title>Welkom, {profile?.email?.split('@')[0]}</Title>
-                <Text>Overzicht van uw VvE portal</Text>
+                <Text>Overzicht van uw Vereniging portal</Text>
             </header>
 
             {/* KPI Grid */}

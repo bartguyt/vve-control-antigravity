@@ -6,7 +6,7 @@ export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export interface MaintenanceTask {
     id: string;
-    vve_id: string;
+    association_id: string;
     title: string;
     description: string | null;
     status: TaskStatus;
@@ -21,7 +21,7 @@ export interface MaintenanceTask {
 }
 
 export const taskService = {
-    async getTasks(vveId: string) {
+    async getTasks(associationId: string) {
         const { data, error } = await supabase
             .from('maintenance_tasks')
             .select(`
@@ -29,7 +29,7 @@ export const taskService = {
                 assignee:assigned_to(email),
                 creator:created_by(email)
             `)
-            .eq('vve_id', vveId)
+            .eq('association_id', associationId)
             .order('created_at', { ascending: false });
 
         if (error) throw error;

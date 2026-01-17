@@ -1,31 +1,34 @@
 export type AppRole = 'admin' | 'manager' | 'board' | 'audit_comm' | 'tech_comm' | 'member';
 
-export interface VvE {
+export interface Association {
     id: string;
     name: string;
     created_at: string;
+    voting_strategy?: 'HEAD' | 'FRACTION';
+    quorum_required?: boolean;
+    quorum_percentage?: number;
 }
 
-export interface VveMembership {
+export interface AssociationMembership {
     id: string;
     user_id: string;
-    vve_id: string;
+    association_id: string;
     role: AppRole;
     created_at: string;
     is_active?: boolean;
-    vves?: VvE; // Joined VvE data
+    associations?: Association; // Joined Association data
 }
 
 export interface Profile {
     id: string; // unique profile id
     user_id: string | null; // links to auth.users if registered
-    // Legacy single-vve fields (deprecated but kept for backward compat)
-    vve_id?: string;
+    // Legacy single-association fields (deprecated but kept for backward compat until migration)
+    association_id?: string;
     role?: AppRole;
 
-    // New Multi-VvE fields
+    // New Multi-Association fields
     is_super_admin?: boolean;
-    vve_memberships?: VveMembership[];
+    association_memberships?: AssociationMembership[];
     preferences?: {
         confirm_tags?: boolean;
     };
@@ -49,7 +52,7 @@ export interface Profile {
 
 export interface ContributionYear {
     id: string;
-    vve_id: string;
+    association_id: string;
     year: number;
     default_amount: number;
     base_rate_name: string;
@@ -60,7 +63,7 @@ export interface ContributionYear {
 
 export interface MemberContribution {
     id: string;
-    vve_id: string;
+    association_id: string;
     year_id: string;
     member_id: string;
     amount_due: number;
@@ -78,7 +81,7 @@ export interface MemberContribution {
 
 export interface ContributionGroup {
     id: string;
-    vve_id: string;
+    association_id: string;
     name: string;
     created_at: string;
 }
@@ -106,7 +109,7 @@ export interface MemberGroupAssignment {
 
 export interface BankTransaction {
     id: string;
-    vve_id: string;
+    association_id: string;
     account_id: string;
     external_id: string;
     booking_date: string;
@@ -128,7 +131,7 @@ export interface BankTransaction {
 
 export interface LedgerAccount {
     id: string;
-    vve_id: string;
+    association_id: string;
     code: number;
     name: string;
     type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
@@ -137,7 +140,7 @@ export interface LedgerAccount {
 
 export interface FinancialCategory {
     id: string;
-    vve_id: string;
+    association_id: string;
     name: string;
     ledger_account_id: string;
     ledger_account?: LedgerAccount;
@@ -146,7 +149,7 @@ export interface FinancialCategory {
 
 export interface JournalEntry {
     id: string;
-    vve_id: string;
+    association_id: string;
     transaction_id?: string;
     booking_date: string;
     description: string;
@@ -166,7 +169,7 @@ export interface JournalEntryLine {
 
 export interface Supplier {
     id: string;
-    vve_id: string;
+    association_id: string;
     name: string;
     category: string;
     notes?: string;
@@ -175,14 +178,14 @@ export interface Supplier {
 
 export interface Document {
     id: string;
-    vve_id: string;
+    association_id: string;
     title: string;
     file_url: string;
 }
 
 export interface Assignment {
     id: string;
-    vve_id: string;
+    association_id: string;
     title: string;
     description: string;
     amount?: number;
@@ -190,4 +193,65 @@ export interface Assignment {
     document_id?: string | null;
     created_at: string;
     scheduled_date?: string | null;
+}
+
+export interface Member {
+    id: string;
+    association_id: string;
+    profile_id?: string | null;
+    member_number?: string | null;
+    building_number?: string | null;
+    street?: string | null;
+    house_number?: string | null;
+    zip_code?: string | null;
+    city?: string | null;
+    fraction: number;
+    created_at: string;
+}
+
+export type MeetingStatus = 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+
+export interface Meeting {
+    id: string;
+    association_id: string;
+    date: string;
+    name: string;
+    description?: string | null;
+    location?: string | null;
+    status: MeetingStatus;
+    created_at: string;
+}
+
+export type ProposalType = 'NORMAL' | 'SPECIAL' | 'UNANIMOUS';
+export type ProposalStatus = 'DRAFT' | 'OPEN' | 'ACCEPTED' | 'REJECTED';
+
+export interface Proposal {
+    id: string;
+    association_id: string;
+    meeting_id?: string | null;
+    title: string;
+    description?: string | null;
+    type: ProposalType;
+    status: ProposalStatus;
+    created_at: string;
+
+    // Virtual/Joined fields
+    meeting?: Meeting;
+    votes?: Vote[];
+}
+
+export type VoteChoice = 'FOR' | 'AGAINST' | 'ABSTAIN';
+
+export interface Vote {
+    id: string;
+    proposal_id: string;
+    member_id: string;
+    user_id: string;
+    choice: VoteChoice;
+    weight: number;
+    created_at: string;
+
+    // Joined
+    member?: Member;
+    user?: Profile;
 }

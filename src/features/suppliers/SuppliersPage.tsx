@@ -22,13 +22,13 @@ export const SuppliersPage: React.FC = () => {
         try {
             setLoading(true);
             const profile = await memberService.getCurrentProfile();
-            if (!profile?.vve_id) return;
+            if (!profile?.association_id) return;
 
-            const fetchedSuppliers = await supplierService.getSuppliers(profile.vve_id);
+            const fetchedSuppliers = await supplierService.getSuppliers(profile.association_id);
             setSuppliers(fetchedSuppliers);
 
             // Permission check: Tech Comm, Board, Manager, Admin
-            const role = profile.vve_memberships?.find(m => m.vve_id === profile.vve_id)?.role;
+            const role = profile.association_memberships?.find(m => m.association_id === profile.association_id)?.role;
             const isSuperAdmin = profile.is_super_admin;
             const hasEditRights = isSuperAdmin || ['tech_comm', 'board', 'bestuur', 'manager', 'admin'].includes(role || '');
             setCanEdit(hasEditRights);

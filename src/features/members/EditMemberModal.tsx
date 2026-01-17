@@ -25,8 +25,8 @@ export const EditMemberModal: React.FC<Props> = ({ isOpen, onClose, onMemberUpda
         phone_number: member.phone_number || '',
     });
 
-    const [role, setRole] = useState(member.vve_memberships?.[0]?.role || 'member');
-    const [isActive, setIsActive] = useState(member.vve_memberships?.[0]?.is_active ?? true);
+    const [role, setRole] = useState(member.association_memberships?.[0]?.role || 'member');
+    const [isActive, setIsActive] = useState(member.association_memberships?.[0]?.is_active ?? true);
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -53,7 +53,7 @@ export const EditMemberModal: React.FC<Props> = ({ isOpen, onClose, onMemberUpda
 
         try {
             await memberService.updateMember(member.id, formData);
-            const membership = member.vve_memberships?.[0];
+            const membership = member.association_memberships?.[0];
             if (membership) {
                 await memberService.updateMembership(membership.id, {
                     role,

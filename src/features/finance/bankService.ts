@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabase';
 // import type { BankTransaction } from '../../types/database';
-import { vveService } from '../../lib/vve';
+import { associationService } from '../../lib/association';
 import { bookkeepingService } from './bookkeepingService';
 
 // Mock specific logic
@@ -29,13 +29,13 @@ export const bankService = {
 
     // 3. Link & Generate Data (The "Magic" Step)
     async saveConnection(requisitionId: string, status: string = 'LINKED') {
-        const vveId = await vveService.getCurrentVveId();
+        const associationId = await associationService.getCurrentAssociationId();
 
         // A. Create Connection
         const { data: connection, error: connError } = await supabase
             .from('bank_connections')
             .insert({
-                vve_id: vveId,
+                association_id: associationId,
                 requisition_id: requisitionId,
                 status: status,
                 provider_name: 'Mock Bank (Demo)'
@@ -56,7 +56,7 @@ export const bankService = {
 
             mockAccounts.push({
                 connection_id: connection.id,
-                vve_id: vveId,
+                association_id: associationId,
                 external_id: `mock-acc-${i}-${Date.now()}`,
                 iban: `NL${Math.floor(Math.random() * 90) + 10}MOCK${Math.floor(Math.random() * 1000000000).toString().padStart(9, '0')}`,
                 name: name,
@@ -80,7 +80,7 @@ export const bankService = {
             const mockTransactions = [
                 {
                     account_id: account.id,
-                    vve_id: vveId,
+                    association_id: associationId,
                     external_id: `tx-1-${account.id}`,
                     booking_date: new Date().toISOString().split('T')[0],
                     amount: -1250.00,
@@ -90,11 +90,11 @@ export const bankService = {
                 },
                 {
                     account_id: account.id,
-                    vve_id: vveId,
+                    association_id: associationId,
                     external_id: `tx-2-${account.id}`,
                     booking_date: new Date(Date.now() - 86400000 * 2).toISOString().split('T')[0],
                     amount: 150.00,
-                    description: 'VvE Bijdrage Maart - App. 4A',
+                    description: 'Association Bijdrage Maart - App. 4A',
                     debtor_name: 'J. Jansen',
                     transaction_type: 'CREDIT_TRANSFER'
                 }
@@ -119,12 +119,12 @@ export const bankService = {
 
     // 4. List Accounts (Fetch from DB)
     async getAccounts() {
-        const vveId = await vveService.getCurrentVveId();
+        const associationId = await associationService.getCurrentAssociationId();
 
         const { data } = await supabase
             .from('bank_accounts')
             .select('*')
-            .eq('vve_id', vveId);
+            .eq('association_id', associationId);
 
         return data || [];
     },
@@ -153,12 +153,12 @@ export const bankService = {
 
         let count = 0;
         if (data && data.length > 0) {
-            const vveId = data[0].vve_id;
+            const associationId = data[0].association_id;
             // Find 'Ledenbijdrage' category
             const { data: cat } = await supabase
                 .from('financial_categories')
                 .select('id')
-                .eq('vve_id', vveId)
+                .eq('association_id', associationId)
                 .ilike('name', 'Ledenbijdrage')
                 .single();
 
@@ -210,7 +210,7 @@ export const bankService = {
                 const { data: cat } = await supabase
                     .from('financial_categories')
                     .select('id')
-                    .eq('vve_id', data.vve_id)
+                    .eq('association_id', data.association_id)
                     .ilike('name', 'Ledenbijdrage') // Case insensitive match
                     .single();
 
@@ -255,12 +255,12 @@ export const bankService = {
     },
 
     // 7b. Bulk Link by IBAN
-    async linkTransactionsByIban(iban: string, vveId: string, memberId: string) {
+    async linkTransactionsByIban(iban: string, associationId: string, memberId: string) {
         const { data, error } = await supabase
             .from('bank_transactions')
             .update({ linked_member_id: memberId })
             .eq('counterparty_iban', iban)
-            .eq('vve_id', vveId)
+            .eq('association_id', associationId)
             .select();
 
         if (error) throw error;
@@ -271,7 +271,7 @@ export const bankService = {
             const { data: cat } = await supabase
                 .from('financial_categories')
                 .select('id')
-                .eq('vve_id', vveId)
+                .eq('association_id', associationId)
                 .ilike('name', 'Ledenbijdrage')
                 .single();
 

@@ -32,14 +32,14 @@ export const RoleProtectedRoute: React.FC<Props> = ({ allowedRoles, requireSuper
                 }
             } else {
                 // Check VvE Role
-                const activeMembership = p.vve_memberships?.find(m => m.vve_id === p.vve_id);
+                const activeMembership = p.association_memberships?.find(m => m.association_id === p.association_id);
                 const activeRole = activeMembership?.role || 'member';
 
                 // Super admins always have access (override)? 
                 // Usually yes, but let's stick to explicit roles + super admin bypass if needed.
                 // For now, if you are super admin, you can probably access everything, 
                 // BUT the logic "impersonate" means you HAVE a role in that VvE context (added via impersonation logic if needed).
-                // Actually, our RLS fix allows super admins to see everything, relying on `vve_memberships` might return nothing if they strictly don't have a row.
+                // Actually, our RLS fix allows super admins to see everything, relying on `association_memberships` might return nothing if they strictly don't have a row.
                 // But the "Impersonate" button in AdminDashboard DOES switch context. 
                 // Does it create a membership? No. 
                 // So Super Admin might NOT have a membership row.

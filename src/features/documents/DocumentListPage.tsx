@@ -44,9 +44,9 @@ export const DocumentListPage: React.FC = () => {
             setDocuments(docsData);
 
 
-            // Get role from vve_memberships
-            const currentVveMembership = profile?.vve_memberships?.find(m => m.vve_id === profile.vve_id);
-            const effectiveRole = profile?.is_super_admin ? 'admin' : (currentVveMembership?.role || null);
+            // Get role from association_memberships
+            const currentAssociationMembership = profile?.association_memberships?.find(m => m.association_id === profile.association_id);
+            const effectiveRole = profile?.is_super_admin ? 'admin' : (currentAssociationMembership?.role || null);
             setUserRole(effectiveRole);
         } catch (error) {
             console.error('Error loading documents:', error);

@@ -25,7 +25,7 @@ import { useNavigate } from 'react-router-dom';
 import { PlusIcon, ArrowsRightLeftIcon, CreditCardIcon, CircleStackIcon, LinkIcon, UserIcon, TagIcon } from '@heroicons/react/24/outline';
 import { LinkTransactionModal } from './LinkTransactionModal';
 import { memberService } from '../members/memberService';
-import { vveService } from '../../lib/vve';
+import { associationService } from '../../lib/association';
 import { contributionService } from './contributionService';
 import { bookkeepingService } from './bookkeepingService';
 import type { BankTransaction, Profile, ContributionYear, FinancialCategory } from '../../types/database';
@@ -33,7 +33,7 @@ import { toast } from 'sonner';
 
 interface Account {
     id: string;
-    vve_id: string;
+    association_id: string;
     name: string;
     iban: string;
     balance_amount: number;
@@ -63,7 +63,7 @@ export const BankAccountPage: React.FC = () => {
         try {
             const [accs, profile, yearsData, catsData] = await Promise.all([
                 bankService.getAccounts(),
-                vveService.getCurrentProfile(),
+                associationService.getCurrentProfile(),
                 contributionService.getYears(),
                 bookkeepingService.getCategories()
             ]);
@@ -168,8 +168,8 @@ export const BankAccountPage: React.FC = () => {
     const canEditCategory = (() => {
         if (!userProfile) return false;
         if (userProfile.is_super_admin) return true;
-        const currentVveId = accounts[selectedAccountIndex]?.vve_id;
-        const membership = userProfile.vve_memberships?.find(m => m.vve_id === currentVveId);
+        const currentAssociationId = accounts[selectedAccountIndex]?.association_id;
+        const membership = userProfile.association_memberships?.find(m => m.association_id === currentAssociationId);
         return membership && ['admin', 'bestuur'].includes(membership.role);
     })();
 
@@ -418,7 +418,7 @@ export const BankAccountPage: React.FC = () => {
                     transactionDescription={selectedTx.description}
                     transactionAmount={selectedTx.amount}
                     counterpartyIban={selectedTx.counterparty_iban}
-                    vveId={selectedTx.vve_id}
+                    associationId={selectedTx.association_id}
                 />
             )}
         </div>

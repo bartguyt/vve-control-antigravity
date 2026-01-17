@@ -16,26 +16,26 @@ const lastNames = ['Jansen', 'de Vries', 'Bakker', 'Smit', 'Visser', 'Mulder', '
 export const seedFinanceData = async () => {
     console.log('Starting Finance Seed...');
 
-    // 1. Get current VvE
+    // 1. Get current Association
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('No user found');
 
     const { data: profile } = await supabase
         .from('profiles')
         .select(`
-            vve_memberships!fk_memberships_profiles_userid (
-                vve_id
+            association_memberships (
+                association_id
             )
         `)
         .eq('user_id', user.id)
         .single();
 
-    if (!profile?.vve_memberships?.[0]?.vve_id) {
-        console.error('No VvE found for user');
+    if (!profile?.association_memberships?.[0]?.association_id) {
+        console.error('No Association found for user');
         return;
     }
 
-    const vveId = profile.vve_memberships[0].vve_id;
+    const associationId = profile.association_memberships[0].association_id;
 
     // 2. Create 10 dummy members
     const newMemberIds: string[] = [];
@@ -47,11 +47,6 @@ export const seedFinanceData = async () => {
         const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}.${Math.floor(Math.random() * 1000)}@dummy.com`;
 
         // Create Profile (Dummy)
-        // We might not be able to create auth users easily, but we can create profiles if RLS allows (or if we are admin)
-        // Note: Creating profiles without auth users is 'ghost users'. 
-        // For this demo, we'll insert into profiles directly if allowed, or we just create "Member Records" if we had a separate table.
-        // Assuming 'profiles' is the source of truth.
-
         const dummyId = uuidv4();
         const { error: profileError } = await supabase.from('profiles').insert({
             id: dummyId,
@@ -59,7 +54,7 @@ export const seedFinanceData = async () => {
             email: email,
             first_name: firstName,
             last_name: lastName,
-            vve_id: vveId,
+            association_id: associationId,
             is_super_admin: false
         });
 
@@ -68,10 +63,10 @@ export const seedFinanceData = async () => {
             continue;
         }
 
-        // Add to VvE Membership (ignore if exists)
-        const { error: memberError } = await supabase.from('vve_memberships').insert({
+        // Add to Association Membership (ignore if exists)
+        const { error: memberError } = await supabase.from('association_memberships').insert({
             user_id: dummyId,
-            vve_id: vveId,
+            association_id: associationId,
             role: 'member'
         });
 
@@ -99,15 +94,15 @@ export const seedFinanceData = async () => {
     // Mix of existing IBANs (matches) and random IBANs (no match)
 
     // Get a bank account to attach to (or create one)
-    const { data: accounts } = await supabase.from('bank_accounts').select('id').eq('vve_id', vveId).limit(1);
+    const { data: accounts } = await supabase.from('bank_accounts').select('id').eq('association_id', associationId).limit(1);
     let accountId = accounts?.[0]?.id;
 
     if (!accountId) {
         // Create dummy bank account
         const { data: newAcc } = await supabase.from('bank_accounts').insert({
-            vve_id: vveId,
+            association_id: associationId,
             account_number: generateIBAN(),
-            holder_name: 'VvE Betaalrekening',
+            holder_name: 'Vereniging Betaalrekening',
             bank_name: 'Rabobank',
             currency: 'EUR',
             account_type: 'payment'
@@ -158,7 +153,7 @@ export const seedFinanceData = async () => {
 
         transactions.push({
             account_id: accountId,
-            vve_id: vveId, // Required
+            association_id: associationId, // Required
             external_id: uuidv4(), // Required Unique ID
             booking_date: date.toISOString().split('T')[0], // Was transaction_date
             amount: parseFloat(amount as string), // Ensure number

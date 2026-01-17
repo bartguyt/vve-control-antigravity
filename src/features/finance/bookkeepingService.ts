@@ -1,16 +1,15 @@
 import { supabase } from '../../lib/supabase';
 import type { LedgerAccount, FinancialCategory } from '../../types/database';
-
-import { vveService } from '../../lib/vve';
+import { associationService } from '../../lib/association';
 
 export const bookkeepingService = {
     // --- Ledger Accounts ---
     async getLedgerAccounts(): Promise<LedgerAccount[]> {
-        const vveId = await vveService.getCurrentVveId();
+        const associationId = await associationService.getCurrentAssociationId();
         const { data, error } = await supabase
             .from('ledger_accounts')
             .select('*')
-            .eq('vve_id', vveId)
+            .eq('association_id', associationId)
             .order('code');
 
         if (error) throw error;
@@ -19,12 +18,12 @@ export const bookkeepingService = {
 
     // --- Financial Categories ---
     async getCategories(): Promise<FinancialCategory[]> {
-        const vveId = await vveService.getCurrentVveId();
+        const associationId = await associationService.getCurrentAssociationId();
         // Join with ledger_account to get code/name if needed
         const { data, error } = await supabase
             .from('financial_categories')
             .select('*, ledger_account:ledger_accounts(*)')
-            .eq('vve_id', vveId)
+            .eq('association_id', associationId)
             .order('name');
 
         if (error) throw error;
@@ -32,14 +31,14 @@ export const bookkeepingService = {
     },
 
     async createCategory(category: Partial<FinancialCategory>): Promise<FinancialCategory> {
-        let vve_id = category.vve_id;
-        if (!vve_id) {
-            vve_id = await vveService.getCurrentVveId();
+        let association_id = category.association_id;
+        if (!association_id) {
+            association_id = await associationService.getCurrentAssociationId();
         }
 
         const { data, error } = await supabase
             .from('financial_categories')
-            .insert({ ...category, vve_id })
+            .insert({ ...category, association_id })
             .select()
             .single();
 
@@ -69,14 +68,14 @@ export const bookkeepingService = {
     },
 
     async createLedgerAccount(account: Partial<LedgerAccount>): Promise<LedgerAccount> {
-        let vve_id = account.vve_id;
-        if (!vve_id) {
-            vve_id = await vveService.getCurrentVveId();
+        let association_id = account.association_id;
+        if (!association_id) {
+            association_id = await associationService.getCurrentAssociationId();
         }
 
         const { data, error } = await supabase
             .from('ledger_accounts')
-            .insert({ ...account, vve_id })
+            .insert({ ...account, association_id })
             .select()
             .single();
 
@@ -145,7 +144,7 @@ export const bookkeepingService = {
         const { data: bankLedger } = await supabase
             .from('ledger_accounts')
             .select('id')
-            .eq('vve_id', tx.vve_id)
+            .eq('association_id', tx.association_id)
             .eq('code', 1150) // Assuming standard code
             .single();
 
@@ -179,7 +178,7 @@ export const bookkeepingService = {
         const { data: entry, error: entryError } = await supabase
             .from('journal_entries')
             .insert({
-                vve_id: tx.vve_id,
+                association_id: tx.association_id,
                 transaction_id: transactionId,
                 booking_date: tx.booking_date,
                 description: `${cat.name}: ${tx.description}`,
@@ -214,10 +213,10 @@ export const bookkeepingService = {
     },
     // --- Reports ---
     async getBalanceSheet(atDate: Date): Promise<{ ledger_account_id: string, code: number, name: string, type: string, balance: number }[]> {
-        const vveId = await vveService.getCurrentVveId();
+        const associationId = await associationService.getCurrentAssociationId();
         const { data, error } = await supabase
             .rpc('get_balance_sheet', {
-                target_vve_id: vveId,
+                target_association_id: associationId,
                 at_date: atDate.toISOString().split('T')[0]
             });
 
@@ -226,10 +225,10 @@ export const bookkeepingService = {
     },
 
     async getProfitLoss(startDate: Date, endDate: Date): Promise<{ ledger_account_id: string, code: number, name: string, type: string, amount: number }[]> {
-        const vveId = await vveService.getCurrentVveId();
+        const associationId = await associationService.getCurrentAssociationId();
         const { data, error } = await supabase
             .rpc('get_profit_loss', {
-                target_vve_id: vveId,
+                target_association_id: associationId,
                 start_date: startDate.toISOString().split('T')[0],
                 end_date: endDate.toISOString().split('T')[0]
             });

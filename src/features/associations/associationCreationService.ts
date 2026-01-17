@@ -1,17 +1,17 @@
 import { supabase } from '../../lib/supabase';
-import type { VvE } from '../../types/database';
+import type { Association } from '../../types/database';
 
-export const vveService = {
+export const associationCreationService = {
     /**
-     * Creates a new VvE and automatically makes the creator an Admin/Manager.
+     * Creates a new Association and automatically makes the creator an Admin/Manager.
      */
-    async createVve(name: string, kvkNumber?: string) {
+    async createAssociation(name: string, kvkNumber?: string) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Not authenticated');
 
-        // 1. Create the VvE
-        const { data: vve, error: vveError } = await supabase
-            .from('vves')
+        // 1. Create the Association
+        const { data: association, error: associationError } = await supabase
+            .from('associations')
             .insert({
                 name,
                 kvk_number: kvkNumber
@@ -19,27 +19,24 @@ export const vveService = {
             .select()
             .single();
 
-        if (vveError) throw vveError;
-        if (!vve) throw new Error('Failed to create VvE');
+        if (associationError) throw associationError;
+        if (!association) throw new Error('Failed to create Association');
 
         // 2. Add creator as a Member with 'board' (or 'manager') role
-        // Note: 'board' is a safe default for the creator.
         const { error: memberError } = await supabase
-            .from('vve_memberships')
+            .from('association_memberships')
             .insert({
                 user_id: user.id,
-                vve_id: vve.id,
+                association_id: association.id,
                 role: 'board', // Creator is Board member by default
                 is_active: true
             });
 
         if (memberError) {
-            // Cleanup VvE if membership fails (optional, but good practice)
             console.error('Failed to create initial membership:', memberError);
-            // await supabase.from('vves').delete().eq('id', vve.id); 
             throw memberError;
         }
 
-        return vve as VvE;
+        return association as Association;
     }
 };

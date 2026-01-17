@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { Button, TextInput, Text } from '@tremor/react';
-import { vveService } from './vveService';
+import { associationCreationService } from './associationCreationService';
 import { supabase } from '../../lib/supabase';
 import { BaseModal } from '../../components/ui/BaseModal';
 
-interface CreateVveModalProps {
+interface CreateAssociationModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSuccess: (newVveId: string) => void;
+    onSuccess: (newAssociationId: string) => void;
 }
 
-export const CreateVveModal: React.FC<CreateVveModalProps> = ({ isOpen, onClose, onSuccess }) => {
+export const CreateAssociationModal: React.FC<CreateAssociationModalProps> = ({ isOpen, onClose, onSuccess }) => {
     const [name, setName] = useState('');
     const [kvk, setKvk] = useState('');
     const [loading, setLoading] = useState(false);
@@ -22,24 +22,24 @@ export const CreateVveModal: React.FC<CreateVveModalProps> = ({ isOpen, onClose,
         setError('');
 
         try {
-            const newVve = await vveService.createVve(name, kvk);
+            const newAssociation = await associationCreationService.createAssociation(name, kvk);
 
-            // Switch context immediately to the new VvE
+            // Switch context immediately to the new Association
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 await supabase
                     .from('profiles')
-                    .update({ vve_id: newVve.id })
+                    .update({ association_id: newAssociation.id })
                     .eq('user_id', user.id);
             }
 
-            onSuccess(newVve.id);
+            onSuccess(newAssociation.id);
             onClose();
             setName('');
             setKvk('');
         } catch (err: any) {
             console.error(err);
-            setError(err.message || 'Kon VvE niet aanmaken.');
+            setError(err.message || 'Kon Association niet aanmaken.');
         } finally {
             setLoading(false);
         }
@@ -49,7 +49,7 @@ export const CreateVveModal: React.FC<CreateVveModalProps> = ({ isOpen, onClose,
         <BaseModal
             isOpen={isOpen}
             onClose={onClose}
-            title="Nieuwe VvE Starten"
+            title="Nieuwe Association Starten"
             footer={(
                 <>
                     <Button variant="secondary" onClick={onClose} type="button">
@@ -62,13 +62,13 @@ export const CreateVveModal: React.FC<CreateVveModalProps> = ({ isOpen, onClose,
             )}
         >
             <Text className="mb-4">
-                Maak een nieuwe omgeving aan voor je Vereniging van Eigenaren.
+                Maak een nieuwe omgeving aan voor je Vereniging van Eigenaren (Association).
             </Text>
 
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                        VvE Naam <span className="text-red-500">*</span>
+                        Association Naam <span className="text-red-500">*</span>
                     </label>
                     <TextInput
                         placeholder="Bijv. VvE De Goudkust"

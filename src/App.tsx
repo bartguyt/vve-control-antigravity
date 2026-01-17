@@ -22,7 +22,7 @@ const AdminDashboardPage = React.lazy(() => import('./features/admin/AdminDashbo
 
 // Placeholders
 const PlaceholderDefault = () => <div className="p-4">Deze pagina is nog in ontwikkeling.</div>;
-const VotingPage = React.lazy(() => import('./features/placeholders/PlaceholderPages').then(module => ({ default: module.VotingPage || PlaceholderDefault })));
+const ProposalsPage = React.lazy(() => import('./features/voting/ProposalsPage').then(module => ({ default: module.ProposalsPage })));
 const NotificationsPage = React.lazy(() => import('./features/placeholders/PlaceholderPages').then(module => ({ default: module.NotificationsPage || PlaceholderDefault })));
 
 import { ThemeProvider } from './components/providers/ThemeProvider';
@@ -65,7 +65,7 @@ function App() {
                 <Route path="/documents" element={<DocumentListPage />} />
                 <Route path="/agenda" element={<AgendaPage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
-                <Route path="/voting" element={<VotingPage />} />
+                <Route path="/voting" element={<ProposalsPage />} />
 
                 {/* Tasks - Accessible to all members now (as per new nav structure request) */}
                 <Route path="/tasks" element={<TasksPage />} />

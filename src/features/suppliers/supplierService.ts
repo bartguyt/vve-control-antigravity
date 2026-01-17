@@ -2,7 +2,7 @@ import { supabase } from '../../lib/supabase';
 
 export interface Supplier {
     id: string;
-    vve_id: string;
+    association_id: string;
     name: string;
     category: string;
     email?: string;
@@ -15,11 +15,11 @@ export interface Supplier {
 }
 
 export const supplierService = {
-    async getSuppliers(vveId: string): Promise<Supplier[]> {
+    async getSuppliers(associationId: string): Promise<Supplier[]> {
         const { data, error } = await supabase
             .from('suppliers')
             .select('*')
-            .eq('vve_id', vveId)
+            .eq('association_id', associationId)
             .order('name', { ascending: true });
 
         if (error) throw error;

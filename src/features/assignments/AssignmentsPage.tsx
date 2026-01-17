@@ -39,13 +39,13 @@ export const AssignmentsPage: React.FC = () => {
         setLoading(true);
         try {
             const profile = await memberService.getCurrentProfile();
-            if (!profile?.vve_id) return;
+            if (!profile?.association_id) return;
 
-            const data = await assignmentService.getAssignments(profile.vve_id);
+            const data = await assignmentService.getAssignments(profile.association_id);
             setAssignments(data);
 
             // Check permissions
-            const role = profile.vve_memberships?.find(m => m.vve_id === profile.vve_id)?.role;
+            const role = profile.association_memberships?.find(m => m.association_id === profile.association_id)?.role;
             const isSuperAdmin = profile.is_super_admin;
             // Board, Manager, Tech Comm, Admin can edit
             const hasEditRights = isSuperAdmin || ['bestuur', 'board', 'manager', 'admin', 'tech_comm'].includes(role || '');

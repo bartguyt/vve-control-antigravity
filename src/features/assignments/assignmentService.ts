@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase';
-import { vveService } from '../../lib/vve';
+import { associationService } from '../../lib/association';
 
 
 // Define types based on our schema
@@ -8,7 +8,7 @@ export type AssignmentStatus = 'concept' | 'sent' | 'accepted' | 'completed' | '
 
 export interface Assignment {
     id: string;
-    vve_id: string;
+    association_id: string;
     supplier_id: string | null;
     document_id: string | null;
     title: string;
@@ -32,7 +32,7 @@ export interface Assignment {
 }
 
 export const assignmentService = {
-    async getAssignments(vveId: string) {
+    async getAssignments(associationId: string) {
         const { data, error } = await supabase
             .from('assignments')
             .select(`
@@ -40,7 +40,7 @@ export const assignmentService = {
                 suppliers ( id, name ),
                 documents ( id, title, file_url )
             `)
-            .eq('vve_id', vveId)
+            .eq('association_id', associationId)
             .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -48,14 +48,14 @@ export const assignmentService = {
     },
 
     async createAssignment(assignment: Partial<Assignment>) {
-        let vve_id = assignment.vve_id;
-        if (!vve_id) {
-            vve_id = await vveService.getCurrentVveId();
+        let association_id = assignment.association_id;
+        if (!association_id) {
+            association_id = await associationService.getCurrentAssociationId();
         }
 
         const { data, error } = await supabase
             .from('assignments')
-            .insert({ ...assignment, vve_id })
+            .insert({ ...assignment, association_id })
             .select()
             .single();
 

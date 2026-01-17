@@ -1,9 +1,10 @@
 import { supabase } from '../../lib/supabase';
 import { activityService } from '../../services/activityService';
+import { associationService } from '../../lib/association';
 
 export interface Document {
     id: string;
-    vve_id: string;
+    association_id: string;
     title: string;
     description: string | null;
     file_url: string;
@@ -33,24 +34,17 @@ export const documentService = {
 
     async uploadDocument(file: File, title: string, description: string) {
         // 1. Get current user profile
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Not authenticated');
-
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('id, vve_id')
-            .eq('user_id', user.id)
-            .single();
-
-        if (!profile) throw new Error('Profile not found');
+        const profile = await associationService.getCurrentProfile();
+        if (!profile) throw new Error('Not authenticated or no profile found');
 
         // 2. Upload file to Supabase Storage
         const fileExt = file.name.split('.').pop();
         const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-        const filePath = `${profile.vve_id}/${fileName}`;
+        // Use association_id for the folder path
+        const filePath = `${profile.association_id}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
-            .from('vve-documents')
+            .from('vve-documents') // Keeping bucket name as is for now
             .upload(filePath, file);
 
         if (uploadError) throw uploadError;
@@ -64,7 +58,7 @@ export const documentService = {
         const { data, error } = await supabase
             .from('documents')
             .insert({
-                vve_id: profile.vve_id,
+                association_id: profile.association_id,
                 title,
                 description,
                 file_url: publicUrl,

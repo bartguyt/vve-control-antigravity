@@ -4,6 +4,7 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { memberService } from './memberService';
 import { bankService } from '../finance/bankService';
 import { EditMemberModal } from './EditMemberModal';
+import { OwnershipTransferModal } from './OwnershipTransferModal';
 import {
     Card,
     Title,
@@ -19,7 +20,7 @@ import {
     Badge,
     Button
 } from '@tremor/react';
-import { ArrowLeftIcon, ExclamationTriangleIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, ExclamationTriangleIcon, PencilSquareIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import type { Profile } from '../../types/database';
 
 export const MemberDetailPage: React.FC = () => {
@@ -30,6 +31,7 @@ export const MemberDetailPage: React.FC = () => {
     const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [editModalOpen, setEditModalOpen] = useState(false);
+    const [transferModalOpen, setTransferModalOpen] = useState(false);
 
     useEffect(() => {
         if (id) loadData(id);
@@ -72,14 +74,32 @@ export const MemberDetailPage: React.FC = () => {
             <PageHeader
                 title={`${member.first_name} ${member.last_name}`}
             >
-                <Button
-                    icon={PencilSquareIcon}
-                    variant="secondary"
-                    onClick={() => setEditModalOpen(true)}
-                >
-                    Bewerk Lid
-                </Button>
+                <div className="flex gap-2">
+                    <Button
+                        icon={ArrowPathIcon}
+                        variant="secondary"
+                        color="orange"
+                        onClick={() => setTransferModalOpen(true)}
+                    >
+                        Overdragen
+                    </Button>
+                    <Button
+                        icon={PencilSquareIcon}
+                        variant="secondary"
+                        onClick={() => setEditModalOpen(true)}
+                    >
+                        Bewerk Lid
+                    </Button>
+                </div>
             </PageHeader>
+
+            <OwnershipTransferModal
+                isOpen={transferModalOpen}
+                onClose={() => setTransferModalOpen(false)}
+                onTransferComplete={() => loadData(member.id)}
+                memberId={member.id}
+                currentOwnerName={`${member.first_name} ${member.last_name}`}
+            />
 
             <Grid numItems={1} numItemsMd={3} className="gap-6">
                 {/* Member Details */}
@@ -100,7 +120,7 @@ export const MemberDetailPage: React.FC = () => {
                             <div>
                                 <Text className="font-medium">Member Number</Text>
                                 <Text>{member.member_number}</Text>
-                                <Badge color="blue">{member.vve_memberships?.[0]?.role || 'Lid'}</Badge>
+                                <Badge color="blue">{member.association_memberships?.[0]?.role || 'Lid'}</Badge>
                             </div>
                         </div>
 

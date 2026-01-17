@@ -58,14 +58,14 @@ export const CreateSupplierModal: React.FC<CreateSupplierModalProps> = ({
 
         try {
             const profile = await memberService.getCurrentProfile();
-            if (!profile?.vve_id) throw new Error('No VvE found');
+            if (!profile?.association_id) throw new Error('No Association found');
 
             if (supplierToEdit) {
                 await supplierService.updateSupplier(supplierToEdit.id, formData);
             } else {
                 await supplierService.createSupplier({
                     ...formData,
-                    vve_id: profile.vve_id
+                    association_id: profile.association_id
                 });
             }
             onSuccess();

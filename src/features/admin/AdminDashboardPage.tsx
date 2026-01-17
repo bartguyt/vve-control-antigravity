@@ -75,7 +75,7 @@ export const AdminDashboardPage: React.FC = () => {
 
             await supabase
                 .from('profiles')
-                .update({ vve_id: vveId })
+                .update({ association_id: vveId }) // Wait, vveId variable might still be named vveId, but column is association_id
                 .eq('user_id', user.id);
 
             window.location.href = '/';
@@ -228,11 +228,11 @@ export const AdminDashboardPage: React.FC = () => {
                                             </TableCell>
                                             <TableCell>
                                                 <div className="space-y-2">
-                                                    {user.vve_memberships?.map(m => (
+                                                    {user.association_memberships?.map(m => (
                                                         <div key={m.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md border border-gray-100">
                                                             <div className="text-sm">
                                                                 <span className="font-semibold text-gray-700 block">{m.vves?.name || 'Onbekend'}</span>
-                                                                <span className="text-gray-500 text-xs">{m.vve_id}</span>
+                                                                <span className="text-gray-500 text-xs">{m.association_id}</span>
                                                             </div>
                                                             <div className="flex items-center space-x-2">
                                                                 {/* Using a native select for density, or Tremor Select if preferred but native fits better in compact tables */}
@@ -248,7 +248,7 @@ export const AdminDashboardPage: React.FC = () => {
                                                             </div>
                                                         </div>
                                                     ))}
-                                                    {(!user.vve_memberships || user.vve_memberships.length === 0) && (
+                                                    {(!user.association_memberships || user.association_memberships.length === 0) && (
                                                         <Text className="italic text-gray-400">Geen VvE koppelingen</Text>
                                                     )}
                                                 </div>

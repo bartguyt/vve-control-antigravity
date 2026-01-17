@@ -18,7 +18,7 @@ interface Props {
     transactionDescription: string;
     transactionAmount: number;
     counterpartyIban?: string; // Optional
-    vveId: string;
+    associationId: string;
 }
 
 export const LinkTransactionModal: React.FC<Props> = ({
@@ -29,7 +29,7 @@ export const LinkTransactionModal: React.FC<Props> = ({
     transactionDescription,
     transactionAmount,
     counterpartyIban,
-    vveId
+    associationId
 }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
@@ -66,9 +66,9 @@ export const LinkTransactionModal: React.FC<Props> = ({
             setLoading(true);
             const [mem, ass, doc, sup] = await Promise.all([
                 memberService.getMembers(),
-                assignmentService.getAssignments(vveId),
+                assignmentService.getAssignments(associationId),
                 documentService.getDocuments(),
-                supplierService.getSuppliers(vveId)
+                supplierService.getSuppliers(associationId)
             ]);
             setMembers(mem);
             const validAssignments = ass.map(a => ({
@@ -128,7 +128,7 @@ export const LinkTransactionModal: React.FC<Props> = ({
         try {
             setLinking(true);
             if (linkAll && counterpartyIban) {
-                await bankService.linkTransactionsByIban(counterpartyIban, vveId, memberId);
+                await bankService.linkTransactionsByIban(counterpartyIban, associationId, memberId);
                 toast.success('Alle transacties gekoppeld aan lid');
             } else {
                 await bankService.linkTransaction(transactionId, memberId);

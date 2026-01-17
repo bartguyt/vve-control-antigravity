@@ -3,13 +3,13 @@ import { activityService } from '../../services/activityService';
 
 export interface EventCategory {
     id: string;
-    vve_id: string;
+    association_id: string;
     name: string;
 }
 
 export interface AgendaEvent {
     id: string;
-    vve_id: string;
+    association_id: string;
     title: string;
     description: string | null;
     category_id: string | null; // Kept for legacy/database compatibility
@@ -39,7 +39,7 @@ export const agendaService = {
                     event_categories (
                         id,
                         name,
-                        vve_id
+                        association_id
                     )
                 ),
                 profiles:created_by (email)
@@ -71,7 +71,7 @@ export const agendaService = {
 
         const { data: profile } = await supabase
             .from('profiles')
-            .select('vve_id')
+            .select('association_id')
             .eq('user_id', user.id)
             .single();
 
@@ -85,7 +85,8 @@ export const agendaService = {
             .from('event_categories')
             .select('*')
             .ilike('name', lowerName)
-            .eq('vve_id', profile.vve_id)
+            .ilike('name', lowerName)
+            .eq('association_id', profile.association_id)
             .maybeSingle();
 
         if (existing) return existing;
@@ -93,7 +94,7 @@ export const agendaService = {
         // 2. Create new
         const { data, error } = await supabase
             .from('event_categories')
-            .insert({ vve_id: profile.vve_id, name: cleanName })
+            .insert({ association_id: profile.association_id, name: cleanName })
             .select()
             .single();
 
@@ -101,13 +102,13 @@ export const agendaService = {
         return data as EventCategory;
     },
 
-    async createEvent(eventData: Omit<AgendaEvent, 'id' | 'created_at' | 'updated_at' | 'vve_id' | 'created_by' | 'event_categories' | 'profiles' | 'category_id'> & { categoryNames: string[] }) {
+    async createEvent(eventData: Omit<AgendaEvent, 'id' | 'created_at' | 'updated_at' | 'association_id' | 'created_by' | 'event_categories' | 'profiles' | 'category_id'> & { categoryNames: string[] }) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Not authenticated');
 
         const { data: profile } = await supabase
             .from('profiles')
-            .select('id, vve_id')
+            .select('id, association_id')
             .eq('user_id', user.id)
             .single();
 
@@ -125,7 +126,7 @@ export const agendaService = {
             .from('agenda_events')
             .insert({
                 ...insertData,
-                vve_id: profile.vve_id,
+                association_id: profile.association_id,
                 created_by: profile.id
             })
             .select()
@@ -158,7 +159,7 @@ export const agendaService = {
         return event as AgendaEvent;
     },
 
-    async updateEvent(id: string, eventData: Partial<Omit<AgendaEvent, 'id' | 'created_at' | 'created_by' | 'vve_id' | 'event_categories' | 'profiles'>> & { categoryNames?: string[] }) {
+    async updateEvent(id: string, eventData: Partial<Omit<AgendaEvent, 'id' | 'created_at' | 'created_by' | 'association_id' | 'event_categories' | 'profiles'>> & { categoryNames?: string[] }) {
         // 1. Handle categories if provided
         if (eventData.categoryNames) {
             // Clear existing categories

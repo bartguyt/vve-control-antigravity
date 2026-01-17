@@ -56,14 +56,14 @@ export const DebugBar: React.FC = () => {
                         <span className="text-gray-500 font-bold uppercase tracking-wider">Profile</span>
                         <div>PID: <span className="text-white select-all">{profile?.id}</span></div>
                         <div>User ID: <span className="text-white select-all">{profile?.user_id}</span></div>
-                        <div>VvE ID: <span className="text-white select-all">{profile?.vve_memberships?.[0]?.vve_id}</span></div>
+                        <div>Assoc ID: <span className="text-white select-all">{profile?.association_memberships?.[0]?.association_id}</span></div>
                     </div>
 
                     {/* PERMISSIONS SECTION */}
                     <div className="flex flex-col gap-1">
                         <span className="text-gray-500 font-bold uppercase tracking-wider">Perms</span>
                         <div>Super Admin: <span className={profile?.is_super_admin ? 'text-green-300 font-bold' : 'text-red-400'}>{profile?.is_super_admin ? 'YES' : 'NO'}</span></div>
-                        <div>Membership: <span className="text-white">{profile?.vve_memberships?.[0]?.role || 'NONE'}</span></div>
+                        <div>Membership: <span className="text-white">{profile?.association_memberships?.[0]?.role || 'NONE'}</span></div>
                     </div>
 
                     {/* ROUTE SECTION */}

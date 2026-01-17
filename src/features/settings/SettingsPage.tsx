@@ -36,6 +36,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 import { memberService } from '../members/memberService';
+import { associationService } from '../../lib/association';
 import { supabase } from '../../lib/supabase';
 import { bankService } from '../finance/bankService';
 import { useColumnConfig } from '../../hooks/useColumnConfig';
@@ -165,6 +166,12 @@ export const SettingsPage: React.FC = () => {
     const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
     const [tempAccountName, setTempAccountName] = useState('');
 
+    // Voting Settings State
+    const [currentAssociationId, setCurrentAssociationId] = useState<string | null>(null);
+    const [votingStrategy, setVotingStrategy] = useState<string>('HEAD');
+    const [quorumRequired, setQuorumRequired] = useState<boolean>(true);
+    const [quorumPercentage, setQuorumPercentage] = useState<number>(50);
+
     useEffect(() => {
         loadPreferences();
         handleCallback();
@@ -177,8 +184,66 @@ export const SettingsPage: React.FC = () => {
             if (profile?.preferences) {
                 setConfirmTags(!!profile.preferences.confirm_tags);
             }
+
+            // Load Association Settings
+            if (profile?.association_memberships) {
+                // Determine active association
+                // Ideally this should come from a centralized context or active_id, 
+                // but getCurrentProfile returns memberships.
+
+                // We use memberService which wraps associationService logic for 'current' usually,
+                // but here let's rely on what we have.
+                // We'll trust associationService.getCurrentAssociationId logic implicitly by finding the right membership?
+                // actually we can just look up the association from the membership list if we knew the ID.
+
+                // Let's assume the first one or active one.
+                const activeId = localStorage.getItem('active_association_id');
+                const activeMembership = profile.association_memberships.find(m => m.association_id === activeId)
+                    || profile.association_memberships[0];
+
+                if (activeMembership && activeMembership.associations) {
+                    const assoc = activeMembership.associations;
+                    setCurrentAssociationId(assoc.id);
+                    setVotingStrategy(assoc.voting_strategy || 'HEAD');
+                    setQuorumRequired(assoc.quorum_required ?? true);
+                    setQuorumPercentage(assoc.quorum_percentage ?? 50);
+                }
+            }
         } catch (e) {
             console.error('Failed to load preferences', e);
+        }
+    };
+
+    // Voting Handlers
+    const updateAssociationSetting = async (updates: any) => {
+        if (!currentAssociationId) return;
+        try {
+            await associationService.updateAssociation(currentAssociationId, updates);
+        } catch (e) {
+            console.error('Failed to update association settings', e);
+            // Revert? (Complex without previous state tracking)
+            // Ideally show toast error
+        }
+    };
+
+    const handleVotingStrategyChange = (val: string) => {
+        setVotingStrategy(val);
+        updateAssociationSetting({ voting_strategy: val });
+    };
+
+    const handleQuorumRequiredChange = (val: boolean) => {
+        setQuorumRequired(val);
+        updateAssociationSetting({ quorum_required: val });
+    };
+
+    const handleQuorumPercentageChange = (val: string) => {
+        const num = parseInt(val, 10);
+        if (!isNaN(num) && num >= 0 && num <= 100) {
+            setQuorumPercentage(num);
+            // Debounce this? For now direct update is okay if user types slow, otherwise onBlur preference.
+            // But Select/Switch trigger immediately. Text input might spam.
+            // Let's just update for now.
+            updateAssociationSetting({ quorum_percentage: num });
         }
     };
 
@@ -305,7 +370,7 @@ export const SettingsPage: React.FC = () => {
         <div className="p-6 space-y-6">
             <header>
                 <Title>Instellingen</Title>
-                <Text>Beheer uw VvE instellingen en koppelingen.</Text>
+                <Text>Beheer uw Vereniging instellingen en koppelingen.</Text>
             </header>
 
             <TabGroup index={selectedTab} onIndexChange={handleTabChange}>
@@ -368,6 +433,69 @@ export const SettingsPage: React.FC = () => {
                                             }}
                                         />
                                     </div>
+                                </div>
+                            </Card>
+
+                            {/* Voting Configuration */}
+                            <Card className="mt-4">
+                                <Title className="mb-4">Steminstellingen</Title>
+                                <div className="space-y-4">
+                                    {/* Strategy */}
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <Text className="font-medium text-gray-900">Stemmethodiek</Text>
+                                            <Text className="text-sm text-gray-500">
+                                                Bepaal hoe stemmen worden geteld.
+                                            </Text>
+                                        </div>
+                                        <div className="w-40">
+                                            <Select
+                                                value={votingStrategy}
+                                                onValueChange={handleVotingStrategyChange}
+                                                enableClear={false}
+                                            >
+                                                <SelectItem value="HEAD">Hoofdelijk (1 stem p.p.)</SelectItem>
+                                                <SelectItem value="FRACTION">Breukdeel (Gewogen)</SelectItem>
+                                            </Select>
+                                        </div>
+                                    </div>
+
+                                    {/* Quorum Switch */}
+                                    <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+                                        <div>
+                                            <Text className="font-medium text-gray-900">Quorum Vereist</Text>
+                                            <Text className="text-sm text-gray-500">
+                                                Is er een minimaal aantal aanwezigen nodig voor besluitvorming?
+                                            </Text>
+                                        </div>
+                                        <Switch
+                                            checked={quorumRequired}
+                                            onChange={handleQuorumRequiredChange}
+                                        />
+                                    </div>
+
+                                    {/* Quorum Percentage */}
+                                    {quorumRequired && (
+                                        <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+                                            <div>
+                                                <Text className="font-medium text-gray-900">Quorum Percentage</Text>
+                                                <Text className="text-sm text-gray-500">
+                                                    Percentage leden/stemmen dat aanwezig moet zijn.
+                                                </Text>
+                                            </div>
+                                            <div className="w-24">
+                                                <TextInput
+                                                    type="number"
+                                                    min="1"
+                                                    max="100"
+                                                    value={String(quorumPercentage)}
+                                                    onValueChange={(v) => handleQuorumPercentageChange(v)}
+                                                    icon={undefined}
+                                                    placeholder="50"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </Card>
                         </div>
@@ -476,7 +604,7 @@ export const SettingsPage: React.FC = () => {
                                                                     await refreshBankData();
                                                                     setSeedModalOpen(false);
                                                                 } else {
-                                                                    alert('Geen VvE gevonden of er is iets misgegaan.');
+                                                                    alert('Geen Vereniging gevonden of er is iets misgegaan.');
                                                                 }
                                                             } catch (e: any) {
                                                                 alert('Fout: ' + e.message);
@@ -678,12 +806,12 @@ export const SettingsPage: React.FC = () => {
                                         color="red"
                                         variant="primary"
                                         onClick={async () => {
-                                            if (confirm('WAARSCHUWING: Dit verwijdert ALLE koppelingen tussen leden en IBANs voor de hele VvE. Weet u dit zeker?')) {
+                                            if (confirm('WAARSCHUWING: Dit verwijdert ALLE koppelingen tussen leden en IBANs voor de hele Vereniging. Weet u dit zeker?')) {
                                                 if (confirm('Echt zeker? Dit kan niet ongedaan worden gemaakt.')) {
                                                     try {
                                                         setLoading(true);
                                                         await memberService.resetAllFinanceLinks(
-                                                            (await memberService.getCurrentProfile())?.vve_id || ''
+                                                            (await memberService.getCurrentProfile())?.association_id || ''
                                                         );
                                                         alert('Alle koppelingen zijn verwijderd.');
                                                         await refreshBankData();
@@ -723,6 +851,6 @@ export const SettingsPage: React.FC = () => {
                     </TabPanel>
                 </TabPanels>
             </TabGroup>
-        </div>
+        </div >
     );
 };

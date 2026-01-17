@@ -55,8 +55,8 @@ export const MemberListPage: React.FC = () => {
             ]);
             setMembers(data);
 
-            const currentVveMembership = profile?.vve_memberships?.find(m => m.vve_id === profile.vve_id);
-            const effectiveRole = profile?.is_super_admin ? 'admin' : (currentVveMembership?.role || null);
+            const currentAssociationMembership = profile?.association_memberships?.find(m => m.association_id === profile.association_id);
+            const effectiveRole = profile?.is_super_admin ? 'admin' : (currentAssociationMembership?.role || null);
             setUserRole(effectiveRole);
         } catch (error) {
             console.error('Error loading members:', error);
@@ -185,7 +185,7 @@ export const MemberListPage: React.FC = () => {
                     isItemDeletable={isMemberDeletable}
                     onSettingsClick={() => navigate('/settings?tab=1')}
                     renderCell={(member, colId) => {
-                        const effectiveRole = member.vve_memberships?.[0]?.role || 'member';
+                        const effectiveRole = member.association_memberships?.[0]?.role || 'member';
                         switch (colId) {
                             case 'name':
                                 return (

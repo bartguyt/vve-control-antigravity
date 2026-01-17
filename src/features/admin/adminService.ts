@@ -1,8 +1,8 @@
 import { supabase } from '../../lib/supabase';
-import type { VvE } from '../../types/database';
+import type { Association } from '../../types/database';
 
 export interface AdminStats {
-    totalVves: number;
+    totalAssociations: number;
     totalUsers: number; // Placeholder for now
     activeLoginsLast30Days: number; // Placeholder
 }
@@ -15,11 +15,11 @@ export interface AdminUser {
     last_name?: string;
     created_at: string;
     is_super_admin: boolean;
-    vve_memberships?: {
+    association_memberships?: {
         id: string;
         role: string;
-        vve_id: string;
-        vves?: {
+        association_id: string;
+        associations?: {
             id: string;
             name: string;
         };
@@ -28,18 +28,18 @@ export interface AdminUser {
 
 export const adminService = {
     /**
-     * Fetches all VvEs. 
+     * Fetches all Associations. 
      * Only works if the user is a Super Admin (RLS policy handles this).
      */
-    async getAllVves() {
+    async getAllAssociations() {
         // ... (existing)
         const { data, error } = await supabase
-            .from('vves')
+            .from('associations')
             .select('*')
             .order('name');
 
         if (error) throw error;
-        return data as VvE[];
+        return data as Association[];
     },
 
     /**
@@ -50,11 +50,11 @@ export const adminService = {
             .from('profiles')
             .select(`
                 *,
-                vve_memberships (
+                association_memberships (
                     id,
                     role,
-                    vve_id,
-                    vves (
+                    association_id,
+                    associations (
                         id,
                         name
                     )
@@ -71,7 +71,7 @@ export const adminService = {
      */
     async updateMembershipRole(membershipId: string, newRole: string) {
         const { error } = await supabase
-            .from('vve_memberships')
+            .from('association_memberships')
             .update({ role: newRole })
             .eq('id', membershipId);
 
@@ -84,12 +84,12 @@ export const adminService = {
      */
     async getStats(): Promise<AdminStats> {
         // ... (existing)
-        // Real count of VvEs
-        const { count: vveCount, error: vveError } = await supabase
-            .from('vves')
+        // Real count of Associations
+        const { count: associationCount, error: associationError } = await supabase
+            .from('associations')
             .select('*', { count: 'exact', head: true });
 
-        if (vveError) throw vveError;
+        if (associationError) throw associationError;
 
         // Real count of Users (Profiles)
         // Note: This requires RLS allowing Super Admin to read all profiles
@@ -112,7 +112,7 @@ export const adminService = {
         if (loginError) console.error('Error fetching login stats:', loginError);
 
         return {
-            totalVves: vveCount || 0,
+            totalAssociations: associationCount || 0,
             totalUsers: userCount || 0,
             activeLoginsLast30Days: loginCount || 0,
         };

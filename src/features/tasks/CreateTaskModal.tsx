@@ -38,10 +38,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
         setLoading(true);
         try {
             const profile = await memberService.getCurrentProfile();
-            if (!profile?.vve_id) return;
+            if (!profile?.association_id) return;
 
             const taskData = {
-                vve_id: profile.vve_id,
+                association_id: profile.association_id,
                 title,
                 description,
                 priority,

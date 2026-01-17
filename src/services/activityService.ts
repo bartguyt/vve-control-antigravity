@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { vveService } from '../lib/vve';
+import { associationService } from '../lib/association';
 
 export type ActivityAction = 'create' | 'update' | 'delete' | 'login';
 export type ActivityTarget = 'member' | 'document' | 'event';
@@ -11,11 +11,11 @@ export const activityService = {
         targetId?: string;
         description: string;
     }) {
-        const profile = await vveService.getCurrentProfile();
+        const profile = await associationService.getCurrentProfile();
         if (!profile) return;
 
         await supabase.from('activity_logs').insert({
-            vve_id: profile.vve_id,
+            association_id: profile.association_id,
             profile_id: profile.id, // Changed from user_id to profile_id
             action_type: params.action,
             target_type: params.targetType,

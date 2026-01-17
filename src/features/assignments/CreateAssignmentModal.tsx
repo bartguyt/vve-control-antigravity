@@ -55,9 +55,9 @@ export const CreateAssignmentModal: React.FC<Props> = ({ isOpen, onClose, onSucc
     const loadDependencies = async () => {
         try {
             const profile = await memberService.getCurrentProfile();
-            if (profile?.vve_id) {
+            if (profile?.association_id) {
                 const [sups, docs] = await Promise.all([
-                    supplierService.getSuppliers(profile.vve_id),
+                    supplierService.getSuppliers(profile.association_id),
                     documentService.getDocuments() // This fetches documents for current VvE context (via RLS/Filter)
                 ]);
                 setSuppliers(sups);
@@ -73,10 +73,10 @@ export const CreateAssignmentModal: React.FC<Props> = ({ isOpen, onClose, onSucc
         setLoading(true);
         try {
             const profile = await memberService.getCurrentProfile();
-            if (!profile?.vve_id) return;
+            if (!profile?.association_id) return;
 
             const payload = {
-                vve_id: profile.vve_id,
+                association_id: profile.association_id,
                 title,
                 description,
                 supplier_id: supplierId || null,

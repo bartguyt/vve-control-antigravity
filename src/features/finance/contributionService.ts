@@ -6,7 +6,7 @@ import type {
     ContributionYearAmount,
     MemberGroupAssignment
 } from '../../types/database';
-import { vveService } from '../../lib/vve';
+import { associationService } from '../../lib/association';
 
 export const contributionService = {
     // --- Groups ---
@@ -28,11 +28,11 @@ export const contributionService = {
     },
 
     async createGroup(name: string): Promise<ContributionGroup> {
-        const vveId = await vveService.getCurrentVveId();
+        const associationId = await associationService.getCurrentAssociationId();
 
         const { data, error } = await supabase
             .from('contribution_groups')
-            .insert({ vve_id: vveId, name })
+            .insert({ association_id: associationId, name })
             .select()
             .single();
 
@@ -118,33 +118,33 @@ export const contributionService = {
 
         const { data: profile } = await supabase
             .from('profiles')
-            .select('vve_id')
+            .select('association_id')
             .eq('id', user.id)
             .maybeSingle();
 
-        let vveId = profile?.vve_id;
+        let associationId = profile?.association_id;
 
-        if (!vveId) {
+        if (!associationId) {
             const { data: member } = await supabase
-                .from('vve_memberships')
-                .select('vve_id')
+                .from('association_memberships')
+                .select('association_id')
                 .eq('user_id', user.id)
                 .limit(1)
                 .maybeSingle();
 
-            if (member?.vve_id) {
-                vveId = member.vve_id;
-                await supabase.from('profiles').update({ vve_id: vveId }).eq('id', user.id);
+            if (member?.association_id) {
+                associationId = member.association_id;
+                await supabase.from('profiles').update({ association_id: associationId }).eq('id', user.id);
             }
         }
 
-        if (!vveId) throw new Error('Geen VvE gevonden voor uw account. Neem contact op met de beheerder.');
+        if (!associationId) throw new Error('Geen Association gevonden voor uw account. Neem contact op met de beheerder.');
 
         // 1. Create Year
         const { data: newYear, error } = await supabase
             .from('contribution_years')
             .insert({
-                vve_id: vveId,
+                association_id: associationId,
                 year,
                 default_amount: defaultAmount,
                 base_rate_name: baseRateName,
@@ -210,10 +210,10 @@ export const contributionService = {
             .from('profiles')
             .select(`
                 id, 
-                vve_id,
+                association_id,
                 member_group_assignments(group_id)
             `)
-            .eq('vve_id', yearData.vve_id);
+            .eq('association_id', yearData.association_id);
 
         if (profileError) throw profileError;
         if (!profiles?.length) return { created: 0 };
@@ -240,7 +240,7 @@ export const contributionService = {
             }
 
             toCreate.push({
-                vve_id: yearData.vve_id,
+                association_id: yearData.association_id,
                 year_id: yearId,
                 member_id: p.id,
                 group_id: groupId || null,
@@ -300,7 +300,7 @@ export const contributionService = {
                 .from('bank_transactions')
                 .select('amount, description, booking_date, category, contribution_year_id')
                 .eq('linked_member_id', c.member_id)
-                .eq('vve_id', c.vve_id)
+                .eq('association_id', c.association_id)
                 .eq('category', 'ledenbijdrage'); // Only count transactions categorized as member contribution
 
             if (!txs?.length) continue;
