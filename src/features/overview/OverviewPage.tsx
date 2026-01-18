@@ -14,7 +14,8 @@ import {
     List,
     ListItem,
     Badge,
-    Icon
+    Icon,
+    Button
 } from '@tremor/react';
 import {
     UserGroupIcon,
@@ -24,8 +25,28 @@ import {
     PencilSquareIcon,
     TrashIcon,
     UserIcon,
-    PlusCircleIcon
+    PlusCircleIcon,
+    Cog6ToothIcon
 } from '@heroicons/react/24/outline';
+import { ContactsWidget } from './ContactsWidget';
+import { AssociationsWidget } from './AssociationsWidget';
+import { DashboardSettingsModal } from './DashboardSettingsModal';
+
+interface DashboardConfig {
+    showStats: boolean;
+    showActivities: boolean;
+    showLogins: boolean;
+    showContacts: boolean;
+    showAssociations: boolean;
+}
+
+const DEFAULT_CONFIG: DashboardConfig = {
+    showStats: true,
+    showActivities: true,
+    showLogins: true,
+    showContacts: true,
+    showAssociations: true
+};
 
 export const OverviewPage: React.FC = () => {
     const [profile, setProfile] = useState<Profile | null>(null);
@@ -37,6 +58,13 @@ export const OverviewPage: React.FC = () => {
         events: 0
     });
     const [loading, setLoading] = useState(true);
+
+    // Widget Config State
+    const [config, setConfig] = useState<DashboardConfig>(() => {
+        const saved = localStorage.getItem('dashboard_config');
+        return saved ? JSON.parse(saved) : DEFAULT_CONFIG;
+    });
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     useEffect(() => {
         const loadOverviewData = async () => {
@@ -50,7 +78,6 @@ export const OverviewPage: React.FC = () => {
                 ]);
 
                 // Parallel fetch for quick counts (not ideal for perf but fine for MVP)
-                // In a real app we'd have a specific stats endpoint
                 const [members, docs, events] = await Promise.all([
                     memberService.getMembers(),
                     documentService.getDocuments(),
@@ -75,6 +102,11 @@ export const OverviewPage: React.FC = () => {
 
         loadOverviewData();
     }, []);
+
+    const handleUpdateConfig = (newConfig: DashboardConfig) => {
+        setConfig(newConfig);
+        localStorage.setItem('dashboard_config', JSON.stringify(newConfig));
+    };
 
     const getActionIcon = (type: string) => {
         switch (type) {
@@ -102,91 +134,123 @@ export const OverviewPage: React.FC = () => {
 
     return (
         <div className="p-6 space-y-6 animate-fade-in bg-gray-50 min-h-screen">
-            <header className="mb-8">
-                <Title>Welkom, {profile?.email?.split('@')[0]}</Title>
-                <Text>Overzicht van uw Vereniging portal</Text>
+            <header className="mb-8 flex justify-between items-start">
+                <div>
+                    <Title>Welkom, {profile?.email?.split('@')[0]}</Title>
+                    <Text>Overzicht van uw Vereniging portal</Text>
+                </div>
+                <Button
+                    variant="secondary"
+                    icon={Cog6ToothIcon}
+                    onClick={() => setIsSettingsOpen(true)}
+                >
+                    Aanpassen
+                </Button>
             </header>
 
             {/* KPI Grid */}
-            <Grid numItems={1} numItemsSm={2} numItemsLg={3} className="gap-6">
-                <Card decoration="top" decorationColor="indigo">
-                    <Flex justifyContent="start" className="space-x-4">
-                        <Icon icon={UserGroupIcon} variant="light" size="xl" color="indigo" />
-                        <div className="truncate">
-                            <Text>Totaal Leden</Text>
-                            <Metric>{stats.members}</Metric>
-                        </div>
-                    </Flex>
-                </Card>
-                <Card decoration="top" decorationColor="fuchsia">
-                    <Flex justifyContent="start" className="space-x-4">
-                        <Icon icon={DocumentIcon} variant="light" size="xl" color="fuchsia" />
-                        <div className="truncate">
-                            <Text>Documenten</Text>
-                            <Metric>{stats.documents}</Metric>
-                        </div>
-                    </Flex>
-                </Card>
-                <Card decoration="top" decorationColor="emerald">
-                    <Flex justifyContent="start" className="space-x-4">
-                        <Icon icon={CalendarIcon} variant="light" size="xl" color="emerald" />
-                        <div className="truncate">
-                            <Text>Agenda Items</Text>
-                            <Metric>{stats.events}</Metric>
-                        </div>
-                    </Flex>
-                </Card>
-            </Grid>
+            {config.showStats && (
+                <Grid numItems={1} numItemsSm={2} numItemsLg={3} className="gap-6">
+                    <Card decoration="top" decorationColor="indigo">
+                        <Flex justifyContent="start" className="space-x-4">
+                            <Icon icon={UserGroupIcon} variant="light" size="xl" color="indigo" />
+                            <div className="truncate">
+                                <Text>Totaal Leden</Text>
+                                <Metric>{stats.members}</Metric>
+                            </div>
+                        </Flex>
+                    </Card>
+                    <Card decoration="top" decorationColor="fuchsia">
+                        <Flex justifyContent="start" className="space-x-4">
+                            <Icon icon={DocumentIcon} variant="light" size="xl" color="fuchsia" />
+                            <div className="truncate">
+                                <Text>Documenten</Text>
+                                <Metric>{stats.documents}</Metric>
+                            </div>
+                        </Flex>
+                    </Card>
+                    <Card decoration="top" decorationColor="emerald">
+                        <Flex justifyContent="start" className="space-x-4">
+                            <Icon icon={CalendarIcon} variant="light" size="xl" color="emerald" />
+                            <div className="truncate">
+                                <Text>Agenda Items</Text>
+                                <Metric>{stats.events}</Metric>
+                            </div>
+                        </Flex>
+                    </Card>
+                </Grid>
+            )}
 
-            {/* Activity Feeds */}
+            {/* Widgets Grid */}
             <Grid numItems={1} numItemsLg={2} className="gap-6 mt-6">
-                <Card>
-                    <Title>Laatste Acties</Title>
-                    <List className="mt-4 h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                        {activities.length === 0 ? (
-                            <Text className="italic p-4">Nog geen activiteiten.</Text>
-                        ) : (
-                            activities.map((activity) => (
-                                <ListItem key={activity.id}>
-                                    <Flex justifyContent="start" className="space-x-4 truncate">
-                                        {getActionIcon(activity.action_type)}
-                                        <div className="truncate">
-                                            <Text className="truncate font-medium text-gray-900">{activity.description}</Text>
-                                            <Text className="truncate text-xs">
-                                                {activity.profiles?.email || 'System'}
-                                            </Text>
-                                        </div>
-                                    </Flex>
-                                    <Badge size="xs" color="gray">
-                                        {formatDate(activity.created_at)}
-                                    </Badge>
-                                </ListItem>
-                            ))
-                        )}
-                    </List>
-                </Card>
 
-                <Card>
-                    <Title>Recent Ingelogd</Title>
-                    <List className="mt-4 h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                        {logins.length === 0 ? (
-                            <Text className="italic p-4">Nog geen logins.</Text>
-                        ) : (
-                            logins.map((login) => (
-                                <ListItem key={login.id}>
-                                    <Flex justifyContent="start" className="space-x-4 truncate">
-                                        <Icon icon={ArrowRightOnRectangleIcon} size="sm" variant="simple" color="violet" />
-                                        <Text className="truncate font-medium">{login.profiles?.email}</Text>
-                                    </Flex>
-                                    <Text className="truncate text-xs">
-                                        {formatDate(login.created_at)}
-                                    </Text>
-                                </ListItem>
-                            ))
-                        )}
-                    </List>
-                </Card>
+                {config.showActivities && (
+                    <Card>
+                        <Title>Laatste Acties</Title>
+                        <List className="mt-4 h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                            {activities.length === 0 ? (
+                                <Text className="italic p-4">Nog geen activiteiten.</Text>
+                            ) : (
+                                activities.map((activity) => (
+                                    <ListItem key={activity.id}>
+                                        <Flex justifyContent="start" className="space-x-4 truncate">
+                                            {getActionIcon(activity.action_type)}
+                                            <div className="truncate">
+                                                <Text className="truncate font-medium text-gray-900">{activity.description}</Text>
+                                                <Text className="truncate text-xs">
+                                                    {activity.profiles?.email || 'System'}
+                                                </Text>
+                                            </div>
+                                        </Flex>
+                                        <Badge size="xs" color="gray">
+                                            {formatDate(activity.created_at)}
+                                        </Badge>
+                                    </ListItem>
+                                ))
+                            )}
+                        </List>
+                    </Card>
+                )}
+
+                {config.showLogins && (
+                    <Card>
+                        <Title>Recent Ingelogd</Title>
+                        <List className="mt-4 h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                            {logins.length === 0 ? (
+                                <Text className="italic p-4">Nog geen logins.</Text>
+                            ) : (
+                                logins.map((login) => (
+                                    <ListItem key={login.id}>
+                                        <Flex justifyContent="start" className="space-x-4 truncate">
+                                            <Icon icon={ArrowRightOnRectangleIcon} size="sm" variant="simple" color="violet" />
+                                            <Text className="truncate font-medium">{login.profiles?.email}</Text>
+                                        </Flex>
+                                        <Text className="truncate text-xs">
+                                            {formatDate(login.created_at)}
+                                        </Text>
+                                    </ListItem>
+                                ))
+                            )}
+                        </List>
+                    </Card>
+                )}
+
+                {config.showAssociations && (
+                    <AssociationsWidget />
+                )}
+
+                {config.showContacts && (
+                    <ContactsWidget />
+                )}
+
             </Grid>
+
+            <DashboardSettingsModal
+                isOpen={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
+                config={config}
+                onUpdateConfig={handleUpdateConfig}
+            />
         </div>
     );
 };

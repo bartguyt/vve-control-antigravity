@@ -90,6 +90,13 @@ export const votingService = {
         if (error) throw error;
     },
 
+    async calculateResult(proposalId: string) {
+        const { error } = await supabase.rpc('calculate_proposal_result', {
+            p_proposal_id: proposalId
+        });
+        if (error) throw error;
+    },
+
 
     // VOTES
     async castVote(proposalId: string, memberId: string, choice: VoteChoice) {

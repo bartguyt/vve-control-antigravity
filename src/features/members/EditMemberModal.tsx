@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { memberService } from './memberService';
 import type { Profile } from '../../types/database';
-import { Button, TextInput, Select, SelectItem, Switch } from '@tremor/react';
+import { Button, TextInput, Switch } from '@tremor/react';
 import { BaseModal } from '../../components/ui/BaseModal';
 
 interface Props {
@@ -27,6 +27,7 @@ export const EditMemberModal: React.FC<Props> = ({ isOpen, onClose, onMemberUpda
 
     const [role, setRole] = useState(member.association_memberships?.[0]?.role || 'member');
     const [isActive, setIsActive] = useState(member.association_memberships?.[0]?.is_active ?? true);
+    const [functionVal, setFunctionVal] = useState(member.association_memberships?.[0]?.function || '');
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -57,7 +58,8 @@ export const EditMemberModal: React.FC<Props> = ({ isOpen, onClose, onMemberUpda
             if (membership) {
                 await memberService.updateMembership(membership.id, {
                     role,
-                    is_active: isActive
+                    is_active: isActive,
+                    function: functionVal
                 });
             }
             onMemberUpdated();
@@ -162,23 +164,51 @@ export const EditMemberModal: React.FC<Props> = ({ isOpen, onClose, onMemberUpda
 
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                        <Select
-                            value={role}
-                            onValueChange={(val) => setRole(val as any)}
-                            enableClear={false}
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Functie (Bepaalt Rol)</label>
+                        <select
+                            value={functionVal}
+                            onChange={(e) => {
+                                const newVal = e.target.value;
+                                setFunctionVal(newVal);
+
+                                // Auto-assign Role based on Function
+                                let newRole = 'member';
+                                if (newVal === 'Voorzitter' || newVal === 'Bestuurslid') newRole = 'board';
+                                else if (newVal === 'Kascommissie') newRole = 'audit_comm';
+                                else if (newVal === 'Technische Commissie') newRole = 'tech_comm';
+
+                                setRole(newRole as any);
+                            }}
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
                         >
-                            <SelectItem value="member">Member</SelectItem>
-                            <SelectItem value="board">Board</SelectItem>
-                            <SelectItem value="audit_comm">Audit Committee</SelectItem>
-                            <SelectItem value="tech_comm">Technical Committee</SelectItem>
-                        </Select>
+                            <option value="">Geen (Lid)</option>
+                            <option value="Voorzitter">Voorzitter</option>
+                            <option value="Bestuurslid">Bestuurslid</option>
+                            <option value="Technische Commissie">Technische Commissie</option>
+                            <option value="Kascommissie">Kascommissie</option>
+                        </select>
                     </div>
                     <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Toegangsrechten (Automatisch)</label>
+                        <TextInput
+                            disabled
+                            value={
+                                role === 'admin' ? 'Beheerder' :
+                                    role === 'board' ? 'Bestuur (Volledig)' :
+                                        role === 'audit_comm' ? 'Kascommissie (Inzage)' :
+                                            role === 'tech_comm' ? 'Technische Comm. (Onderhoud)' :
+                                                'Lid (Standaard)'
+                            }
+                        />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                        <div className="flex items-center gap-2 mt-2">
+                        <div className="flex items-center gap-2 mt-2 h-[38px]">
                             <Switch checked={isActive} onChange={setIsActive} />
-                            <span className="text-sm text-gray-600">{isActive ? 'Active' : 'Inactive'}</span>
+                            <span className="text-sm text-gray-600">{isActive ? 'Actief' : 'Inactief'}</span>
                         </div>
                     </div>
                 </div>

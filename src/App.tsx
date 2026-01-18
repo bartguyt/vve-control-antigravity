@@ -4,6 +4,7 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { RoleProtectedRoute } from './components/layout/RoleProtectedRoute';
 import { SidebarLayout } from './components/layout/SidebarLayout';
 import { LoginPage } from './features/auth/LoginPage'; // Keep generic auth static for speed
+import { UpdatePasswordPage } from './features/auth/UpdatePasswordPage';
 
 // Lazy Load Pages for Performance
 const OverviewPage = React.lazy(() => import('./features/overview/OverviewPage').then(module => ({ default: module.OverviewPage })));
@@ -11,12 +12,12 @@ const MemberListPage = React.lazy(() => import('./features/members/MemberListPag
 const MemberDetailPage = React.lazy(() => import('./features/members/MemberDetailPage').then(module => ({ default: module.MemberDetailPage })));
 const DocumentListPage = React.lazy(() => import('./features/documents/DocumentListPage').then(module => ({ default: module.DocumentListPage })));
 const AgendaPage = React.lazy(() => import('./features/agenda/AgendaPage').then(module => ({ default: module.AgendaPage })));
-const SettingsPage = React.lazy(() => import('./features/settings/SettingsPage').then(module => ({ default: module.SettingsPage })));
 const BankAccountPage = React.lazy(() => import('./features/finance/BankAccountPage').then(module => ({ default: module.BankAccountPage })));
 const TasksPage = React.lazy(() => import('./features/tasks/TasksPage').then(module => ({ default: module.TasksPage })));
 const SuppliersPage = React.lazy(() => import('./features/suppliers/SuppliersPage').then(module => ({ default: module.SuppliersPage })));
 const ContributionsPage = React.lazy(() => import('./features/finance/ContributionsPage').then(module => ({ default: module.ContributionsPage })));
 const AccountingPage = React.lazy(() => import('./features/finance/AccountingPage').then(module => ({ default: module.AccountingPage })));
+const SettingsPage = React.lazy(() => import('./features/settings/SettingsPage').then(module => ({ default: module.SettingsPage })));
 const AssignmentsPage = React.lazy(() => import('./features/assignments/AssignmentsPage').then(module => ({ default: module.AssignmentsPage })));
 const AdminDashboardPage = React.lazy(() => import('./features/admin/AdminDashboardPage').then(module => ({ default: module.AdminDashboardPage })));
 
@@ -38,46 +39,51 @@ function App() {
         }>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/update-password" element={<UpdatePasswordPage />} />
 
             <Route element={<ProtectedRoute />}>
               <Route element={<SidebarLayout />}>
-                {/* Dashboard */}
+                {/* Algemeen - General */}
                 <Route path="/" element={<OverviewPage />} />
+                <Route path="general/docs" element={<Navigate to="general/documents" replace />} /> {/* Alias if needed */}
+                <Route path="general/tasks" element={<TasksPage />} />
+                <Route path="general/agenda" element={<AgendaPage />} />
+                <Route path="general/documents" element={<DocumentListPage />} />
+                <Route path="general/notifications" element={<NotificationsPage />} />
 
-                {/* Leden */}
-                <Route path="/members" element={<MemberListPage />} />
-                <Route path="/members/:id" element={<MemberDetailPage />} />
+                {/* Association - Vereniging */}
+                <Route path="association/members" element={<MemberListPage />} />
+                <Route path="association/members/:id" element={<MemberDetailPage />} />
+                <Route path="association/voting" element={<ProposalsPage />} />
 
-                {/* Finance */}
+                {/* Finance - Financieel */}
                 <Route element={<RoleProtectedRoute allowedRoles={['board', 'audit_comm', 'admin', 'manager']} />}>
-                  <Route path="/bank" element={<BankAccountPage />} />
-                  <Route path="/accounting" element={<AccountingPage />} />
-                  <Route path="/contributions" element={<ContributionsPage />} />
+                  <Route path="finance/bank" element={<BankAccountPage />} />
                 </Route>
+                <Route path="finance/contributions" element={
+                  <RoleProtectedRoute allowedRoles={['admin', 'board', 'manager', 'audit_comm']} allowMember={true}>
+                    <ContributionsPage />
+                  </RoleProtectedRoute>
+                } />
+                <Route path="finance/accounting" element={
+                  <RoleProtectedRoute allowedRoles={['admin', 'board', 'manager', 'audit_comm']}>
+                    <AccountingPage />
+                  </RoleProtectedRoute>
+                } />
 
-                {/* Beheer - Technical */}
+                {/* Maintenance - Beheer & Onderhoud */}
                 <Route element={<RoleProtectedRoute allowedRoles={['board', 'tech_comm', 'admin', 'manager']} />}>
-                  <Route path="/suppliers" element={<SuppliersPage />} />
-                  <Route path="/assignments" element={<AssignmentsPage />} />
+                  <Route path="maintenance/suppliers" element={<SuppliersPage />} />
+                  <Route path="maintenance/assignments" element={<AssignmentsPage />} />
                 </Route>
 
-                {/* Beheer - General */}
-                <Route path="/documents" element={<DocumentListPage />} />
-                <Route path="/agenda" element={<AgendaPage />} />
-                <Route path="/notifications" element={<NotificationsPage />} />
-                <Route path="/voting" element={<ProposalsPage />} />
-
-                {/* Tasks - Accessible to all members now (as per new nav structure request) */}
-                <Route path="/tasks" element={<TasksPage />} />
-
-                {/* Board / Admin Settings */}
+                {/* System - Systeem */}
                 <Route element={<RoleProtectedRoute allowedRoles={['board', 'admin', 'manager']} />}>
-                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="system/settings" element={<SettingsPage />} />
                 </Route>
 
-                {/* Super Admin Route */}
                 <Route element={<RoleProtectedRoute allowedRoles={[]} requireSuperAdmin={true} />}>
-                  <Route path="/admin" element={<AdminDashboardPage />} />
+                  <Route path="system/admin" element={<AdminDashboardPage />} />
                 </Route>
               </Route>
             </Route>

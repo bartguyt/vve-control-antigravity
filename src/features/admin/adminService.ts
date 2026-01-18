@@ -42,6 +42,11 @@ export const adminService = {
         return data as Association[];
     },
 
+    // Alias for consistency with Dashboard
+    async getAllVves() {
+        return this.getAllAssociations();
+    },
+
     /**
      * Fetches all Users with their memberships.
      */

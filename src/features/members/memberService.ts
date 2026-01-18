@@ -12,7 +12,7 @@ export const memberService = {
                 profile:profile_id (
                     id, first_name, last_name, email, phone_number, user_id,
                     association_memberships (
-                        role, is_active, association_id
+                        id, role, is_active, association_id, function
                     )
                 )
             `)
@@ -152,7 +152,7 @@ export const memberService = {
         return { id, ...updates } as any; // Mock return
     },
 
-    async updateMembership(membershipId: string, updates: { role?: string; is_active?: boolean }) {
+    async updateMembership(membershipId: string, updates: { role?: string; is_active?: boolean; function?: string }) {
         const { data, error } = await supabase
             .from('association_memberships')
             .update(updates)

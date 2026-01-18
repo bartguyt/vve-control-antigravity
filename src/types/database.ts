@@ -16,6 +16,7 @@ export interface AssociationMembership {
     role: AppRole;
     created_at: string;
     is_active?: boolean;
+    function?: string; // e.g. 'Voorzitter', 'Kascommissie'
     associations?: Association; // Joined Association data
 }
 
@@ -239,6 +240,43 @@ export interface Proposal {
     meeting?: Meeting;
     votes?: Vote[];
 }
+
+export type LedgerAccountType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+export type JournalStatus = 'DRAFT' | 'POSTED' | 'ARCHIVED';
+
+export interface LedgerAccount {
+    id: string;
+    association_id: string;
+    code: string;
+    name: string;
+    type: LedgerAccountType;
+    is_system: boolean;
+    parent_id?: string;
+}
+
+export interface JournalEntry {
+    id: string;
+    association_id: string;
+    date: string;
+    description: string;
+    reference?: string;
+    status: JournalStatus;
+    created_by?: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface JournalLine {
+    id: string;
+    entry_id: string;
+    account_id: string;
+    debit: number;
+    credit: number;
+    description?: string;
+    // Joined
+    ledger_account?: LedgerAccount;
+}
+
 
 export type VoteChoice = 'FOR' | 'AGAINST' | 'ABSTAIN';
 
