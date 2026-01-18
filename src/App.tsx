@@ -6,6 +6,8 @@ import { SidebarLayout } from './components/layout/SidebarLayout';
 import { LoginPage } from './features/auth/LoginPage'; // Keep generic auth static for speed
 import { UpdatePasswordPage } from './features/auth/UpdatePasswordPage';
 
+import { ThemeProvider } from './components/providers/ThemeProvider';
+
 // Lazy Load Pages for Performance
 const OverviewPage = React.lazy(() => import('./features/overview/OverviewPage').then(module => ({ default: module.OverviewPage })));
 const MemberListPage = React.lazy(() => import('./features/members/MemberListPage').then(module => ({ default: module.MemberListPage })));
@@ -24,9 +26,11 @@ const AdminDashboardPage = React.lazy(() => import('./features/admin/AdminDashbo
 // Placeholders
 const PlaceholderDefault = () => <div className="p-4">Deze pagina is nog in ontwikkeling.</div>;
 const ProposalsPage = React.lazy(() => import('./features/voting/ProposalsPage').then(module => ({ default: module.ProposalsPage })));
-const NotificationsPage = React.lazy(() => import('./features/placeholders/PlaceholderPages').then(module => ({ default: module.NotificationsPage || PlaceholderDefault })));
+const NotificationsPage = React.lazy(() => import('./features/general/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
 
-import { ThemeProvider } from './components/providers/ThemeProvider';
+const SuperAdminPage = React.lazy(() => import('./features/superadmin/SuperAdminPage').then(module => ({ default: module.SuperAdminPage })));
+const AcceptInvitePage = React.lazy(() => import('./features/superadmin/AcceptInvitePage').then(module => ({ default: module.AcceptInvitePage })));
+const DisputePage = React.lazy(() => import('./features/finance/DisputePage').then(module => ({ default: module.DisputePage })));
 
 function App() {
   return (
@@ -40,6 +44,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/update-password" element={<UpdatePasswordPage />} />
+            <Route path="/accept-invite" element={<AcceptInvitePage />} />
 
             <Route element={<ProtectedRoute />}>
               <Route element={<SidebarLayout />}>
@@ -52,6 +57,8 @@ function App() {
                 <Route path="general/notifications" element={<NotificationsPage />} />
 
                 {/* Association - Vereniging */}
+                <Route path="finance/dispute" element={<DisputePage />} />
+
                 <Route path="association/members" element={<MemberListPage />} />
                 <Route path="association/members/:id" element={<MemberDetailPage />} />
                 <Route path="association/voting" element={<ProposalsPage />} />
@@ -84,6 +91,7 @@ function App() {
 
                 <Route element={<RoleProtectedRoute allowedRoles={[]} requireSuperAdmin={true} />}>
                   <Route path="system/admin" element={<AdminDashboardPage />} />
+                  <Route path="system/super-admin" element={<SuperAdminPage />} />
                 </Route>
               </Route>
             </Route>

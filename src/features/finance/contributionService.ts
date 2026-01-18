@@ -298,10 +298,10 @@ export const contributionService = {
 
             const { data: txs } = await supabase
                 .from('bank_transactions')
-                .select('amount, description, booking_date, category, contribution_year_id')
+                .select('amount, description, booking_date, category:financial_categories!inner(name), contribution_year_id')
                 .eq('linked_member_id', c.member_id)
                 .eq('association_id', c.association_id)
-                .eq('category', 'ledenbijdrage'); // Only count transactions categorized as member contribution
+                .eq('category.name', 'Ledenbijdrage'); // Use joined category name
 
             if (!txs?.length) continue;
 
@@ -416,9 +416,9 @@ export const contributionService = {
 
         const { data: txs } = await supabase
             .from('bank_transactions')
-            .select('*')
+            .select('*, category:financial_categories!inner(name)')
             .eq('linked_member_id', memberId)
-            .eq('category', 'ledenbijdrage')
+            .eq('category.name', 'Ledenbijdrage')
             .order('booking_date', { ascending: false });
 
         if (!txs) return [];

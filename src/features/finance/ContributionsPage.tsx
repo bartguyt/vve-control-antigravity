@@ -45,6 +45,7 @@ import { YearSettingsModal } from './modals/YearSettingsModal';
 import { EditGroupNameModal } from './modals/EditGroupNameModal';
 import { TransactionDetailsModal } from './modals/TransactionDetailsModal';
 import { CreateGroupModal } from './modals/CreateGroupModal';
+import { PaymentReminderModal } from './PaymentReminderModal';
 
 export const ContributionsPage: React.FC = () => {
     // Data State
@@ -60,6 +61,10 @@ export const ContributionsPage: React.FC = () => {
     const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
     const [isGroupSettingsOpen, setIsGroupSettingsOpen] = useState(false);
     const [isTxModalOpen, setIsTxModalOpen] = useState(false);
+
+    // Reminder State
+    const [isReminderOpen, setIsReminderOpen] = useState(false);
+    const [reminderContribution, setReminderContribution] = useState<MemberContribution | null>(null);
 
     // Form State (New Year)
     const [newYear, setNewYear] = useState(new Date().getFullYear());
@@ -147,6 +152,54 @@ export const ContributionsPage: React.FC = () => {
     }, [selectedYearId, years]);
 
     // --- Actions ---
+
+    // --- Actions ---
+
+    // ... existing ...
+
+    const handleRemind = async (c: MemberContribution) => {
+        if (!selectedYearId || !c.member) return;
+        try {
+            // Fetch txns to get last payment date
+            const txs = await contributionService.getLinkedTransactions(c.member.id, selectedYearId);
+            // Assuming txs has date field. 'booking_date'
+            // Sort desc
+            txs.sort((a: any, b: any) => new Date(b.booking_date).getTime() - new Date(a.booking_date).getTime());
+
+            const lastDate = txs.length > 0 ? txs[0].booking_date : undefined;
+
+            // Let's use a separate state variable for `reminderLastPaymentDate`
+            setReminderLastPaymentDate(lastDate);
+            setReminderContribution(c);
+            // We'll pass lastDate to modal props
+            // Store it in a temp state or use the hook in the modal? 
+            // Better: store in a separate state for modal?
+            // "reminderContribution" is strict type.
+            // Let's us "selectedMemberTx" state? No that's for details modal.
+
+            // Hack: add it to the c object as any for now or make a separate state
+            // Let's use a separate state variable for `reminderLastPaymentDate`
+            setReminderLastPaymentDate(lastDate);
+
+            setIsReminderOpen(true);
+        } catch (e) {
+            console.error(e);
+            toast.error('Kon transactie details niet ophalen');
+            // Open anyway?
+            setReminderContribution(c);
+            setIsReminderOpen(true);
+        }
+    };
+
+    // New state for this specific datum
+    const [reminderLastPaymentDate, setReminderLastPaymentDate] = useState<string | undefined>(undefined);
+
+
+    // ... existing ...
+
+
+    // Reminders logic was here
+
 
     const handleCreateYear = async () => {
         try {
@@ -362,6 +415,7 @@ export const ContributionsPage: React.FC = () => {
                                 onMarkPaid={handleMarkPaid}
                                 onUndoPaid={handleUndoPaid}
                                 onViewDetails={handleOpenTxDetails}
+                                onRemind={handleRemind}
                             />
                         </div>
                     </TabPanel>
@@ -496,6 +550,18 @@ export const ContributionsPage: React.FC = () => {
                 groupName={newGroupName}
                 setGroupName={setNewGroupName}
             />
+
+            {reminderContribution && reminderContribution.member && (
+                <PaymentReminderModal
+                    isOpen={isReminderOpen}
+                    onClose={() => setIsReminderOpen(false)}
+                    memberId={reminderContribution.member!!.id}
+                    memberName={`${reminderContribution.member!!.first_name} ${reminderContribution.member!!.last_name}`}
+                    memberEmail={reminderContribution.member!!.email || ''}
+                    arrearsAmount={(reminderContribution.amount_due || 0) - (reminderContribution.amount_paid || 0)}
+                    lastPaymentDate={reminderLastPaymentDate}
+                />
+            )}
         </div>
     );
 };

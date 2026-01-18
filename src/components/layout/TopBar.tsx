@@ -1,11 +1,11 @@
-import React, { Fragment } from 'react';
+import { NotificationCenter } from '../ui/NotificationCenter';
+import { Fragment } from 'react';
 import { Listbox, Transition, Menu } from '@headlessui/react';
 import {
     ChevronUpDownIcon,
     CheckCircleIcon,
     PlusIcon,
     EyeIcon,
-    UserCircleIcon,
     ArrowLeftOnRectangleIcon
 } from '@heroicons/react/24/outline';
 import type { Profile } from '../../types/database';
@@ -53,6 +53,9 @@ export const TopBar: React.FC<TopBarProps> = ({
 
             {/* Right: Actions & Profile */}
             <div className="flex items-center gap-4">
+
+                {/* Notification Center */}
+                <NotificationCenter />
 
                 {/* Super Admin Role Switcher */}
                 {isSuperAdmin && (

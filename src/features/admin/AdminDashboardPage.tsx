@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { adminService } from './adminService';
 import type { AdminUser, AdminStats } from './adminService';
-import type { VvE } from '../../types/database';
+import type { Association as VvE } from '../../types/database';
 import {
     Card,
     Title,
@@ -29,8 +29,13 @@ import {
     ServerIcon,
     ArrowRightOnRectangleIcon,
     ChartPieIcon,
-    UsersIcon
+    UsersIcon,
+    ServerStackIcon,
+    ArrowPathIcon,
+    ClockIcon
 } from '@heroicons/react/24/outline';
+import { superAdminService, type EmailLog } from '../superadmin/superAdminService';
+import { toast } from 'sonner';
 
 const roles = [
     { value: 'admin', label: 'Beheerder' },
@@ -45,6 +50,9 @@ export const AdminDashboardPage: React.FC = () => {
     const [vves, setVves] = useState<VvE[]>([]);
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [stats, setStats] = useState<AdminStats | null>(null);
+    const [emailQueue, setEmailQueue] = useState<EmailLog[]>([]);
+    const [timeLeft, setTimeLeft] = useState(60);
+    const [batchLoading, setBatchLoading] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -53,18 +61,67 @@ export const AdminDashboardPage: React.FC = () => {
 
     const loadData = async () => {
         try {
+            // 1. Critical Data
             const [vveList, userList, fetchedStats] = await Promise.all([
                 adminService.getAllVves(),
-                adminService.getAllUsers(), // Fetch users
+                adminService.getAllUsers(),
                 adminService.getStats()
             ]);
             setVves(vveList);
             setUsers(userList);
             setStats(fetchedStats);
+
+            // 2. Non-critical Data (Email Queue) - Fail gracefully
+            try {
+                const emailQueueList = await superAdminService.getEmailQueue();
+                setEmailQueue(emailQueueList);
+            } catch (e) {
+                console.warn('Could not fetch email queue:', e);
+                // toast.error('Email wachtrij niet bereikbaar'); // Optional
+            }
         } catch (error) {
             console.error('Error loading admin data:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Timer countdown effect
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setTimeLeft((prev) => {
+                if (prev <= 1) return 60; // Reset loop
+                return prev - 1;
+            });
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const handleRunBatch = async () => {
+        setBatchLoading(true);
+        try {
+            const result = await superAdminService.triggerEmailBatch();
+
+            // Check for failures in the result
+            const failures = result.results?.filter((r: any) => r.status === 'failed');
+            if (failures && failures.length > 0) {
+                console.error("Batch failures:", failures);
+                toast.error(`Er zijn ${failures.length} emails mislukt. Zie console voor details.`);
+                // Show first error reason
+                if (failures[0].error) {
+                    toast.error(`Reden: ${failures[0].error}`);
+                }
+            } else {
+                toast.success(`Batch verwerkt: ${result.processed} emails`);
+            }
+
+            loadData();
+            setTimeLeft(60); // Reset timer
+        } catch (e: any) {
+            console.error(e);
+            toast.error(e.message || 'Fout bij verwerken batch');
+        } finally {
+            setBatchLoading(false);
         }
     };
 
@@ -110,6 +167,7 @@ export const AdminDashboardPage: React.FC = () => {
                 <TabList>
                     <Tab icon={ChartPieIcon}>Overzicht & VvE's</Tab>
                     <Tab icon={UsersIcon}>Ledenbeheer ({users.length})</Tab>
+                    <Tab icon={ServerStackIcon}>Email Wachtrij ({emailQueue.filter(e => e.status === 'pending').length})</Tab>
                 </TabList>
                 <TabPanels>
                     <TabPanel>
@@ -122,7 +180,7 @@ export const AdminDashboardPage: React.FC = () => {
                                     </div>
                                     <div>
                                         <Text>Totaal VvE's</Text>
-                                        <Metric>{stats?.totalVves}</Metric>
+                                        <Metric>{stats?.totalAssociations}</Metric>
                                     </div>
                                 </div>
                             </Card>
@@ -231,7 +289,7 @@ export const AdminDashboardPage: React.FC = () => {
                                                     {user.association_memberships?.map(m => (
                                                         <div key={m.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md border border-gray-100">
                                                             <div className="text-sm">
-                                                                <span className="font-semibold text-gray-700 block">{m.vves?.name || 'Onbekend'}</span>
+                                                                <span className="font-semibold text-gray-700 block">{m.associations?.name || 'Onbekend'}</span>
                                                                 <span className="text-gray-500 text-xs">{m.association_id}</span>
                                                             </div>
                                                             <div className="flex items-center space-x-2">
@@ -258,6 +316,144 @@ export const AdminDashboardPage: React.FC = () => {
                                 </TableBody>
                             </Table>
                         </Card>
+                    </TabPanel>
+
+                    {/* EMAIL QUEUE TAB */}
+                    <TabPanel>
+                        <div className="mt-6 space-y-6">
+                            <Grid numItems={1} numItemsSm={2} numItemsLg={3} className="gap-6">
+                                <Card>
+                                    <Text>Wachtrij</Text>
+                                    <Metric>{emailQueue.filter(e => e.status === 'pending').length}</Metric>
+                                </Card>
+                                <Card>
+                                    <Text>Verstuurd Vandaag</Text>
+                                    <Metric>
+                                        {emailQueue.filter(e =>
+                                            e.status === 'sent' &&
+                                            new Date(e.sent_at!).toDateString() === new Date().toDateString()
+                                        ).length}
+                                    </Metric>
+                                </Card>
+                                <Card>
+                                    <div className="flex flex-col h-full justify-between">
+                                        <div>
+                                            <Text>Volgende Batch</Text>
+                                            <div className="flex items-baseline mt-2">
+                                                <Metric>{timeLeft}s</Metric>
+                                                <Text className="ml-2">tot uitvoering</Text>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </Card>
+                            </Grid>
+
+                            <Card>
+                                <div className="flex justify-between items-center mb-4">
+                                    <Title>Email Logboek</Title>
+                                    <div className="flex gap-2">
+                                        {emailQueue.some(e => e.status === 'failed') && (
+                                            <Button
+                                                variant="secondary"
+                                                color="amber"
+                                                onClick={async () => {
+                                                    if (!confirm('Alle mislukte emails opnieuw proberen?')) return;
+                                                    try {
+                                                        await superAdminService.retryAllFailed();
+                                                        toast.success('Alle mislukte emails zijn gereset naar wachtrij');
+                                                        loadData();
+                                                    } catch (e) {
+                                                        toast.error('Kon niet resetten');
+                                                    }
+                                                }}
+                                            >
+                                                Herstel Fouten
+                                            </Button>
+                                        )}
+                                        <Button
+                                            variant="secondary"
+                                            icon={ArrowPathIcon}
+                                            onClick={loadData}
+                                            tooltip="Verversen"
+                                        />
+                                        <Button
+                                            onClick={handleRunBatch}
+                                            loading={batchLoading}
+                                            icon={ServerStackIcon}
+                                        >
+                                            Verwerk Wachtrij Nu
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <Table>
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableHeaderCell>Ontvanger</TableHeaderCell>
+                                            <TableHeaderCell>VvE</TableHeaderCell>
+                                            <TableHeaderCell>Onderwerp</TableHeaderCell>
+                                            <TableHeaderCell>Status</TableHeaderCell>
+                                            <TableHeaderCell>Tijdstip</TableHeaderCell>
+                                            <TableHeaderCell></TableHeaderCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {emailQueue.map(log => (
+                                            <TableRow key={log.id}>
+                                                <TableCell>
+                                                    <div className="font-medium">
+                                                        {log.recipient?.first_name} {log.recipient?.last_name}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">{log.recipient_email}</div>
+                                                </TableCell>
+                                                <TableCell>{log.association?.name || '-'}</TableCell>
+                                                <TableCell className="max-w-xs truncate" title={log.subject}>{log.subject}</TableCell>
+                                                <TableCell>
+                                                    <Badge color={
+                                                        log.status === 'sent' ? 'green' :
+                                                            log.status === 'failed' ? 'red' : 'yellow'
+                                                    }>
+                                                        {log.status}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="text-sm">
+                                                        {new Date(log.created_at).toLocaleString()}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {log.status === 'failed' && (
+                                                        <Button
+                                                            size="xs"
+                                                            variant="light"
+                                                            color="amber"
+                                                            onClick={async () => {
+                                                                try {
+                                                                    await superAdminService.retryEmails([log.id]);
+                                                                    toast.success('Email gereset');
+                                                                    loadData();
+                                                                } catch (e) {
+                                                                    toast.error('Fout bij herstellen');
+                                                                }
+                                                            }}
+                                                        >
+                                                            Opnieuw
+                                                        </Button>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                        {emailQueue.length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={6} className="text-center">
+                                                    <Text>Geen emails gevonden.</Text>
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </Card>
+                        </div>
                     </TabPanel>
                 </TabPanels>
             </TabGroup>
