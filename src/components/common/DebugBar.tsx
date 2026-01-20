@@ -8,6 +8,7 @@ export const DebugBar: React.FC = () => {
     const [isVisible, setIsVisible] = useState(false);
     const [profile, setProfile] = useState<any>(null);
     const [session, setSession] = useState<any>(null);
+    const [loadTime, setLoadTime] = useState<number | null>(null);
     const location = useLocation();
 
     // Check visibility preference
@@ -35,6 +36,15 @@ export const DebugBar: React.FC = () => {
 
     useEffect(() => {
         if (isVisible) refreshData();
+
+        // Measure page load time
+        if (window.performance && window.performance.timing) {
+            const perfData = window.performance.timing;
+            const pageLoadTime = perfData.loadEventEnd - perfData.navigationStart;
+            if (pageLoadTime > 0) {
+                setLoadTime(pageLoadTime);
+            }
+        }
     }, [isVisible, location.pathname]);
 
     if (!isVisible) return null;
@@ -70,6 +80,12 @@ export const DebugBar: React.FC = () => {
                     <div className="flex flex-col gap-1">
                         <span className="text-gray-500 font-bold uppercase tracking-wider">Route</span>
                         <div>Path: <span className="text-white">{location.pathname}</span></div>
+                    </div>
+
+                    {/* PERFORMANCE SECTION */}
+                    <div className="flex flex-col gap-1">
+                        <span className="text-gray-500 font-bold uppercase tracking-wider">Performance</span>
+                        <div>Load Time: <span className="text-white">{loadTime ? `${loadTime}ms` : 'Measuring...'}</span></div>
                     </div>
                 </div>
 
