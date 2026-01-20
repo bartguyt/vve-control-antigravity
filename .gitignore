@@ -26,3 +26,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Scratch and Temporary Files
+*.sql
+!supabase/migrations/*.sql
+!src/**/*.sql
