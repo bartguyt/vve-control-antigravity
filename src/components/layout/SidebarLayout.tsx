@@ -19,7 +19,8 @@ import {
     TruckIcon,
     BriefcaseIcon,
     Cog6ToothIcon,
-    BuildingOffice2Icon
+    BuildingOffice2Icon,
+    BuildingLibraryIcon
 } from '@heroicons/react/24/outline';
 import { DebugBar } from '../common/DebugBar';
 import { Toaster } from 'sonner';
@@ -51,6 +52,7 @@ const navGroups: NavGroup[] = [
         items: [
             { name: 'Boekhouding', path: '/finance/accounting', icon: BookOpenIcon },
             { name: 'Bankrekening', path: '/finance/bank', icon: CreditCardIcon },
+            { name: 'Bank (Dev)', path: '/finance/enable-banking-dev', icon: BuildingLibraryIcon },
             { name: 'Ledenbijdragen', path: '/finance/contributions', icon: CurrencyEuroIcon },
         ]
     },

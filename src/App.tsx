@@ -22,6 +22,7 @@ const AccountingPage = React.lazy(() => import('./features/finance/AccountingPag
 const SettingsPage = React.lazy(() => import('./features/settings/SettingsPage').then(module => ({ default: module.SettingsPage })));
 const AssignmentsPage = React.lazy(() => import('./features/assignments/AssignmentsPage').then(module => ({ default: module.AssignmentsPage })));
 const AdminDashboardPage = React.lazy(() => import('./features/admin/AdminDashboardPage').then(module => ({ default: module.AdminDashboardPage })));
+const EnableBankingSandbox = React.lazy(() => import('./features/finance/EnableBankingSandbox').then(module => ({ default: module.EnableBankingSandbox })));
 
 // Placeholders
 const PlaceholderDefault = () => <div className="p-4">Deze pagina is nog in ontwikkeling.</div>;
@@ -77,6 +78,7 @@ function App() {
                     <AccountingPage />
                   </RoleProtectedRoute>
                 } />
+                <Route path="finance/enable-banking-dev" element={<EnableBankingSandbox />} />
 
                 {/* Maintenance - Beheer & Onderhoud */}
                 <Route element={<RoleProtectedRoute allowedRoles={['board', 'tech_comm', 'admin', 'manager']} />}>
