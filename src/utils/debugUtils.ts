@@ -20,6 +20,7 @@ export const debugUtils = {
     enable(): void {
         if (typeof window !== 'undefined') {
             localStorage.setItem(DEBUG_KEY, 'true');
+            window.dispatchEvent(new Event('debugModeChanged'));
             console.log('🐛 Debug mode enabled');
         }
     },
@@ -30,6 +31,7 @@ export const debugUtils = {
     disable(): void {
         if (typeof window !== 'undefined') {
             localStorage.setItem(DEBUG_KEY, 'false');
+            window.dispatchEvent(new Event('debugModeChanged'));
             console.log('🐛 Debug mode disabled');
         }
     },

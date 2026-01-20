@@ -428,9 +428,10 @@ export const SettingsPage: React.FC = () => {
                                             checked={localStorage.getItem('vve_debug_mode') === 'true'}
                                             onChange={(val) => {
                                                 localStorage.setItem('vve_debug_mode', String(val));
-                                                // Dispatch event so DebugBar picks it up immediately
+                                                // Dispatch events so components can react
                                                 window.dispatchEvent(new Event('storage'));
-                                                // Force re-render of this switch (simple way)
+                                                window.dispatchEvent(new Event('debugModeChanged'));
+                                                // Force re-render of this switch
                                                 window.location.reload();
                                             }}
                                         />
