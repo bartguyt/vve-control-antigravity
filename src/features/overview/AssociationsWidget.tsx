@@ -81,25 +81,25 @@ export const AssociationsWidget: React.FC = () => {
 
     const getRoleLabel = (role: string) => roleMap[role] || role;
 
-    if (loading) return <Card><Text>Laden...</Text></Card>;
+    if (loading) return <Card className="rounded-card shadow-card ring-0 bg-white p-6"><Text>Laden...</Text></Card>;
 
     return (
-        <Card>
-            <Title>Mijn Verenigingen</Title>
+        <Card className="rounded-card shadow-card ring-0 bg-white p-6">
+            <Title className="font-heading text-slate-blue">Mijn Verenigingen</Title>
             <List className="mt-4">
                 {associations.length === 0 ? (
-                    <Text className="italic p-4">Geen verenigingen gevonden.</Text>
+                    <Text className="italic p-4 text-slate-blue/60">Geen verenigingen gevonden.</Text>
                 ) : (
                     associations.map((assoc) => (
-                        <ListItem key={assoc.id}>
+                        <ListItem key={assoc.id} className="border-slate-blue/10">
                             <Flex justifyContent="start" className="space-x-4">
-                                <Icon icon={BuildingOfficeIcon} variant="light" size="lg" color="blue" />
+                                <Icon icon={BuildingOfficeIcon} variant="light" size="lg" color="slate" />
                                 <div className="truncate">
-                                    <Text className="font-medium text-gray-900 truncate">{assoc.name}</Text>
-                                    <Text className="text-xs text-gray-500">{assoc.member_count} Leden</Text>
+                                    <Text className="font-medium text-slate-blue truncate">{assoc.name}</Text>
+                                    <Text className="text-xs text-slate-blue/60">{assoc.member_count} Leden</Text>
                                 </div>
                             </Flex>
-                            <Badge size="xs" color="gray">
+                            <Badge size="xs" color="gray" className="rounded-md">
                                 {getRoleLabel(assoc.role)}
                             </Badge>
                         </ListItem>

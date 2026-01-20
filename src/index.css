@@ -1,18 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Inter:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    @apply text-gray-900 bg-gray-50;
+    @apply text-slate-blue bg-sea-salt;
   }
 
-  .dark :root {
-    @apply text-gray-100 bg-slate-950;
-  }
-
+  /* Modern Steward Base Styles */
   body {
-    @apply antialiased text-gray-900 bg-gray-50 dark:bg-slate-950 dark:text-gray-200;
+    @apply antialiased font-body text-body text-slate-blue bg-sea-salt;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-heading font-bold text-slate-blue;
+  }
+
+  /* Tabular figures for financial data */
+  .tabular-nums {
+    font-feature-settings: 'tnum';
+    font-variant-numeric: tabular-nums;
   }
 }
 

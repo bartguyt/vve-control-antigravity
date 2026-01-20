@@ -68,33 +68,33 @@ export const ContactsWidget: React.FC = () => {
         }
     };
 
-    if (loading) return <Card><Text>Laden...</Text></Card>;
+    if (loading) return <Card className="rounded-card shadow-card ring-0 bg-white p-6"><Text>Laden...</Text></Card>;
 
     return (
-        <Card>
-            <Title>Contactpersonen</Title>
+        <Card className="rounded-card shadow-card ring-0 bg-white p-6">
+            <Title className="font-heading text-slate-blue">Contactpersonen</Title>
             <List className="mt-4">
                 {contacts.length === 0 ? (
-                    <Text className="italic p-4">Geen contactpersonen gevonden.</Text>
+                    <Text className="italic p-4 text-slate-blue/60">Geen contactpersonen gevonden.</Text>
                 ) : (
                     contacts.map((contact) => (
-                        <ListItem key={(contact as any).profile_id || contact.id}>
+                        <ListItem key={(contact as any).profile_id || contact.id} className="border-slate-blue/10">
                             <div className="w-full">
                                 <Flex justifyContent="between" alignItems="start">
                                     <div className="truncate">
-                                        <Text className="font-medium text-gray-900 truncate">
+                                        <Text className="font-medium text-slate-blue truncate">
                                             {contact.first_name} {contact.last_name}
                                         </Text>
                                         <div className="flex flex-wrap gap-1 mt-1">
                                             {(contact as any).functions && (contact as any).functions.length > 0 ? (
                                                 (contact as any).functions.map((f: string) => (
-                                                    <Badge key={f} size="xs" color="indigo">
+                                                    <Badge key={f} size="xs" color="slate" className="rounded-md">
                                                         {f}
                                                     </Badge>
                                                 ))
                                             ) : (
                                                 (contact as any).roles.map((r: string) => (
-                                                    <Badge key={r} size="xs" color="gray">
+                                                    <Badge key={r} size="xs" color="gray" className="rounded-md">
                                                         {getRoleName(r)}
                                                     </Badge>
                                                 ))
@@ -104,17 +104,17 @@ export const ContactsWidget: React.FC = () => {
                                     <div className="flex space-x-2">
                                         {contact.email && (
                                             <a href={`mailto:${contact.email}`} title="Stuur e-mail">
-                                                <Icon icon={EnvelopeIcon} variant="simple" color="gray" size="sm" />
+                                                <Icon icon={EnvelopeIcon} variant="simple" color="slate" size="sm" className="text-slate-blue hover:text-sage-green transition-colors" />
                                             </a>
                                         )}
                                         {contact.phone_number && (
                                             <a href={`tel:${contact.phone_number}`} title="Bellen">
-                                                <Icon icon={PhoneIcon} variant="simple" color="gray" size="sm" />
+                                                <Icon icon={PhoneIcon} variant="simple" color="slate" size="sm" className="text-slate-blue hover:text-sage-green transition-colors" />
                                             </a>
                                         )}
                                     </div>
                                 </Flex>
-                                <div className="mt-2 text-xs text-gray-500 space-y-1">
+                                <div className="mt-2 text-xs text-slate-blue/60 space-y-1">
                                     {contact.email && (
                                         <div className="flex items-center space-x-2">
                                             <span className="w-4 h-4 flex items-center justify-center">@</span>

@@ -133,16 +133,17 @@ export const OverviewPage: React.FC = () => {
     }
 
     return (
-        <div className="p-6 space-y-6 animate-fade-in bg-gray-50 min-h-screen">
+        <div className="p-6 space-y-6 animate-fade-in bg-sea-salt min-h-screen">
             <header className="mb-8 flex justify-between items-start">
                 <div>
-                    <Title>Welkom, {profile?.email?.split('@')[0]}</Title>
-                    <Text>Overzicht van uw Vereniging portal</Text>
+                    <Title className="font-heading text-slate-blue">Welkom, {profile?.email?.split('@')[0]}</Title>
+                    <Text className="text-slate-blue/70">Overzicht van uw Vereniging portal</Text>
                 </div>
                 <Button
                     variant="secondary"
                     icon={Cog6ToothIcon}
                     onClick={() => setIsSettingsOpen(true)}
+                    className="border-slate-blue/20 text-slate-blue hover:border-slate-blue hover:bg-slate-blue/5 rounded-xl"
                 >
                     Aanpassen
                 </Button>
@@ -151,30 +152,36 @@ export const OverviewPage: React.FC = () => {
             {/* KPI Grid */}
             {config.showStats && (
                 <Grid numItems={1} numItemsSm={2} numItemsLg={3} className="gap-6">
-                    <Card decoration="top" decorationColor="indigo">
+                    <Card decoration="top" decorationColor="slate" className="rounded-card shadow-card ring-0 bg-white p-6">
                         <Flex justifyContent="start" className="space-x-4">
-                            <Icon icon={UserGroupIcon} variant="light" size="xl" color="indigo" />
+                            <div className="p-3 rounded-full bg-slate-100 text-slate-700">
+                                <UserGroupIcon className="h-6 w-6" />
+                            </div>
                             <div className="truncate">
-                                <Text>Totaal Leden</Text>
-                                <Metric>{stats.members}</Metric>
+                                <Text className="text-slate-blue/70">Totaal Leden</Text>
+                                <Metric className="font-heading text-slate-blue tabular-nums">{stats.members}</Metric>
                             </div>
                         </Flex>
                     </Card>
-                    <Card decoration="top" decorationColor="fuchsia">
+                    <Card decoration="top" decorationColor="orange" className="rounded-card shadow-card ring-0 bg-white p-6">
                         <Flex justifyContent="start" className="space-x-4">
-                            <Icon icon={DocumentIcon} variant="light" size="xl" color="fuchsia" />
+                            <div className="p-3 rounded-full bg-orange-50 text-orange-600">
+                                <DocumentIcon className="h-6 w-6" />
+                            </div>
                             <div className="truncate">
-                                <Text>Documenten</Text>
-                                <Metric>{stats.documents}</Metric>
+                                <Text className="text-slate-blue/70">Documenten</Text>
+                                <Metric className="font-heading text-slate-blue tabular-nums">{stats.documents}</Metric>
                             </div>
                         </Flex>
                     </Card>
-                    <Card decoration="top" decorationColor="emerald">
+                    <Card decoration="top" decorationColor="emerald" className="rounded-card shadow-card ring-0 bg-white p-6">
                         <Flex justifyContent="start" className="space-x-4">
-                            <Icon icon={CalendarIcon} variant="light" size="xl" color="emerald" />
+                            <div className="p-3 rounded-full bg-emerald-50 text-emerald-600">
+                                <CalendarIcon className="h-6 w-6" />
+                            </div>
                             <div className="truncate">
-                                <Text>Agenda Items</Text>
-                                <Metric>{stats.events}</Metric>
+                                <Text className="text-slate-blue/70">Agenda Items</Text>
+                                <Metric className="font-heading text-slate-blue tabular-nums">{stats.events}</Metric>
                             </div>
                         </Flex>
                     </Card>
@@ -185,24 +192,24 @@ export const OverviewPage: React.FC = () => {
             <Grid numItems={1} numItemsLg={2} className="gap-6 mt-6">
 
                 {config.showActivities && (
-                    <Card>
-                        <Title>Laatste Acties</Title>
+                    <Card className="rounded-card shadow-card ring-0 bg-white p-6">
+                        <Title className="font-heading text-slate-blue">Laatste Acties</Title>
                         <List className="mt-4 h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                             {activities.length === 0 ? (
-                                <Text className="italic p-4">Nog geen activiteiten.</Text>
+                                <Text className="italic p-4 text-slate-blue/60">Nog geen activiteiten.</Text>
                             ) : (
                                 activities.map((activity) => (
-                                    <ListItem key={activity.id}>
+                                    <ListItem key={activity.id} className="border-slate-blue/10">
                                         <Flex justifyContent="start" className="space-x-4 truncate">
                                             {getActionIcon(activity.action_type)}
                                             <div className="truncate">
-                                                <Text className="truncate font-medium text-gray-900">{activity.description}</Text>
-                                                <Text className="truncate text-xs">
+                                                <Text className="truncate font-medium text-slate-blue">{activity.description}</Text>
+                                                <Text className="truncate text-xs text-slate-blue/60">
                                                     {activity.profiles?.email || 'System'}
                                                 </Text>
                                             </div>
                                         </Flex>
-                                        <Badge size="xs" color="gray">
+                                        <Badge size="xs" color="gray" className="rounded-md">
                                             {formatDate(activity.created_at)}
                                         </Badge>
                                     </ListItem>
@@ -213,19 +220,19 @@ export const OverviewPage: React.FC = () => {
                 )}
 
                 {config.showLogins && (
-                    <Card>
-                        <Title>Recent Ingelogd</Title>
+                    <Card className="rounded-card shadow-card ring-0 bg-white p-6">
+                        <Title className="font-heading text-slate-blue">Recent Ingelogd</Title>
                         <List className="mt-4 h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                             {logins.length === 0 ? (
-                                <Text className="italic p-4">Nog geen logins.</Text>
+                                <Text className="italic p-4 text-slate-blue/60">Nog geen logins.</Text>
                             ) : (
                                 logins.map((login) => (
-                                    <ListItem key={login.id}>
+                                    <ListItem key={login.id} className="border-slate-blue/10">
                                         <Flex justifyContent="start" className="space-x-4 truncate">
                                             <Icon icon={ArrowRightOnRectangleIcon} size="sm" variant="simple" color="violet" />
-                                            <Text className="truncate font-medium">{login.profiles?.email}</Text>
+                                            <Text className="truncate font-medium text-slate-blue">{login.profiles?.email}</Text>
                                         </Flex>
-                                        <Text className="truncate text-xs">
+                                        <Text className="truncate text-xs text-slate-blue/60">
                                             {formatDate(login.created_at)}
                                         </Text>
                                     </ListItem>

@@ -167,13 +167,13 @@ export const SidebarLayout: React.FC = () => {
     const filteredGroups = filterNavGroups(navGroups);
 
     const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-        `flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors ${isActive
-            ? 'bg-indigo-600 text-white'
-            : 'text-gray-600 dark:text-gray-400 hover:bg-indigo-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400'
+        `flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${isActive
+            ? 'bg-white/10 text-white shadow-sm'
+            : 'text-gray-300 hover:bg-white/5 hover:text-white'
         }`;
 
     return (
-        <div className="flex h-screen flex-col bg-gray-50 dark:bg-slate-950 overflow-hidden">
+        <div className="flex h-screen flex-col bg-sea-salt overflow-hidden">
             <CreateAssociationModal
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
@@ -192,12 +192,12 @@ export const SidebarLayout: React.FC = () => {
             />
 
             <div className="flex flex-1 overflow-hidden">
-                <aside className="w-64 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800 flex flex-col transition-all duration-300 ease-in-out">
-                    <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
+                <aside className="w-72 bg-slate-blue flex flex-col transition-all duration-300 ease-in-out">
+                    <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-8">
                         {
                             filteredGroups.map((group) => (
                                 <div key={group.title}>
-                                    <h3 className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                                    <h3 className="px-4 text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 font-heading">
                                         {group.title}
                                     </h3>
                                     <div className="space-y-1">
@@ -214,7 +214,7 @@ export const SidebarLayout: React.FC = () => {
                     </nav >
                 </aside >
 
-                <main className="flex-1 overflow-y-auto focus:outline-none bg-gray-50 dark:bg-slate-950 pb-20">
+                <main className="flex-1 overflow-y-auto focus:outline-none bg-sea-salt pb-20">
                     <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
                         <Outlet />
                     </div>

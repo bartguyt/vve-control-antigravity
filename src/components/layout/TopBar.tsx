@@ -45,10 +45,10 @@ export const TopBar: React.FC<TopBarProps> = ({
     const memberships = profile?.association_memberships || [];
 
     return (
-        <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 h-16 flex items-center justify-between px-6 shrink-0 z-30">
+        <header className="bg-white border-b border-gray-100 h-16 flex items-center justify-between px-6 shrink-0 z-30 shadow-sm">
             {/* Left: Brand */}
             <div className="flex items-center">
-                <span className="text-xl font-bold text-indigo-600 tracking-tight">VvE Control</span>
+                <span className="text-xl font-heading font-bold text-slate-blue tracking-tight">VvE Control</span>
             </div>
 
             {/* Right: Actions & Profile */}
@@ -61,7 +61,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 {isSuperAdmin && (
                     <Listbox value={simulatedRole || 'SUPER'} onChange={(val) => onSimulateRole(val === 'SUPER' ? null : val)}>
                         <div className="relative w-48 hidden md:block">
-                            <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-amber-50 py-1.5 pl-3 pr-10 text-left shadow-sm border border-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-500 sm:text-xs">
+                            <Listbox.Button className="relative w-full cursor-pointer rounded-xl bg-amber-50 py-1.5 pl-3 pr-10 text-left shadow-sm border border-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-500 sm:text-xs">
                                 <span className="block truncate font-medium text-amber-900 ml-6">
                                     {simulatedRole ? `View: ${availableRoles.find(r => r.id === simulatedRole)?.name}` : 'View: Super Admin'}
                                 </span>
@@ -78,7 +78,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                                 leaveFrom="opacity-100"
                                 leaveTo="opacity-0"
                             >
-                                <Listbox.Options className="absolute right-0 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-xs z-50">
+                                <Listbox.Options className="absolute right-0 mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white py-1 text-base shadow-card ring-1 ring-black/5 focus:outline-none sm:text-xs z-50">
                                     <Listbox.Option
                                         className={({ active }) =>
                                             `relative cursor-default select-none py-2 pl-10 pr-4 ${active ? 'bg-amber-100 text-amber-900' : 'text-gray-900'}`
@@ -133,8 +133,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                         else onSwitchAssociation(val);
                     }}>
                         <div className="relative">
-                            <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-gray-50 dark:bg-slate-800 py-1.5 pl-3 pr-10 text-left border border-gray-200 dark:border-slate-700 hover:border-indigo-400 focus:outline-none sm:text-sm transition-colors">
-                                <span className="block truncate font-medium text-gray-700 dark:text-gray-200">{activeAssociationName}</span>
+                            <Listbox.Button className="relative w-full cursor-pointer rounded-xl bg-gray-50 py-1.5 pl-3 pr-10 text-left border border-gray-200 hover:border-slate-blue focus:outline-none sm:text-sm transition-colors">
+                                <span className="block truncate font-medium text-slate-blue">{activeAssociationName}</span>
                                 <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
                                     <ChevronUpDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
                                 </span>
@@ -145,12 +145,12 @@ export const TopBar: React.FC<TopBarProps> = ({
                                 leaveFrom="opacity-100"
                                 leaveTo="opacity-0"
                             >
-                                <Listbox.Options className="absolute right-0 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-slate-800 py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm z-50">
+                                <Listbox.Options className="absolute right-0 mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white py-1 text-base shadow-card ring-1 ring-black/5 focus:outline-none sm:text-sm z-50">
                                     {memberships.map((m) => (
                                         <Listbox.Option
                                             key={m.id}
                                             className={({ active }) =>
-                                                `relative cursor-default select-none py-2 pl-10 pr-4 ${active ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-900 dark:text-indigo-100' : 'text-gray-900 dark:text-gray-100'}`
+                                                `relative cursor-default select-none py-2 pl-10 pr-4 ${active ? 'bg-slate-blue/10 text-slate-blue' : 'text-gray-900'}`
                                             }
                                             value={m.association_id}
                                         >
@@ -160,7 +160,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                                                         {m.associations?.name}
                                                     </span>
                                                     {selected && (
-                                                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-indigo-600">
+                                                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-blue">
                                                             <CheckCircleIcon className="h-5 w-5" />
                                                         </span>
                                                     )}
@@ -168,11 +168,11 @@ export const TopBar: React.FC<TopBarProps> = ({
                                             )}
                                         </Listbox.Option>
                                     ))}
-                                    <div className="border-t border-gray-100 dark:border-slate-700 my-1"></div>
+                                    <div className="border-t border-gray-100 my-1"></div>
                                     <Listbox.Option
                                         key="new"
                                         className={({ active }) =>
-                                            `relative cursor-pointer select-none py-2 pl-10 pr-4 text-indigo-600 font-medium ${active ? 'bg-indigo-50' : ''}`
+                                            `relative cursor-pointer select-none py-2 pl-10 pr-4 text-slate-blue font-medium ${active ? 'bg-slate-blue/5' : ''}`
                                         }
                                         value="NEW"
                                     >
@@ -189,18 +189,18 @@ export const TopBar: React.FC<TopBarProps> = ({
 
                 {/* Profile Dropdown */}
                 <Menu as="div" className="relative ml-3">
-                    <Menu.Button className="flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                    <Menu.Button className="flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-slate-blue focus:ring-offset-2">
                         <span className="sr-only">Open user menu</span>
-                        <div className="h-8 w-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                        <div className="h-8 w-8 rounded-full bg-slate-blue/10 text-slate-blue flex items-center justify-center border border-slate-blue/20">
                             <span className="font-bold text-sm">
                                 {profile?.first_name?.charAt(0) || profile?.email?.charAt(0)}
                             </span>
                         </div>
                         <div className="hidden md:flex flex-col items-start">
-                            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 leading-tight">
+                            <span className="text-sm font-semibold text-slate-blue leading-tight">
                                 {profile?.first_name} {profile?.last_name}
                             </span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                            <span className="text-xs text-gray-500 capitalize">
                                 {activeRole === 'admin' ? 'Beheerder' :
                                     activeRole === 'tech_comm' ? 'Tech. Cie' :
                                         activeRole === 'audit_comm' ? 'Kascommissie' : activeRole}
@@ -216,12 +216,12 @@ export const TopBar: React.FC<TopBarProps> = ({
                         leaveFrom="transform opacity-100 scale-100"
                         leaveTo="transform opacity-0 scale-95"
                     >
-                        <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white dark:bg-slate-800 py-1 shadow-lg ring-1 ring-black/5 focus:outline-none">
+                        <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-xl bg-white py-1 shadow-card ring-1 ring-black/5 focus:outline-none">
                             <Menu.Item>
                                 {({ active }) => (
                                     <button
                                         onClick={onLogout}
-                                        className={`${active ? 'bg-gray-100 dark:bg-slate-700' : ''
+                                        className={`${active ? 'bg-gray-50' : ''
                                             } flex w-full items-center px-4 py-2 text-sm text-red-600`}
                                     >
                                         <ArrowLeftOnRectangleIcon className="mr-2 h-4 w-4" />

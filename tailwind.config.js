@@ -14,18 +14,26 @@ export default {
         current: 'currentColor',
         extend: {
             colors: {
-                // light mode
+                // Modern Steward Brand Colors
+                'sea-salt': '#F8F9FA',
+                'slate-blue': '#2C3E50',
+                'sage-green': '#4A7C59',
+                'terracotta': '#C07F5E',
+                'muted-red': '#D32F2F',
+                'warm-orange': '#F57C00',
+
+                // Existing Tremor colors mapping (keeping for compatibility)
                 tremor: {
                     brand: {
-                        faint: colors.indigo[50], // blue-50
-                        muted: colors.indigo[200], // blue-200
-                        subtle: colors.indigo[400], // blue-400
-                        DEFAULT: colors.indigo[600], // blue-600
-                        emphasis: colors.indigo[700], // blue-700
+                        faint: '#F2F8F4', // sage-50
+                        muted: '#E1EFE5', // sage-100
+                        subtle: '#4A7C59', // sage-green
+                        DEFAULT: '#4A7C59', // Sage Green (Primary CTA)
+                        emphasis: '#3A6347', // Darker Sage
                         inverted: colors.white, // white
                     },
                     background: {
-                        muted: colors.gray[50], // gray-50
+                        muted: '#F8F9FA', // Sea Salt
                         subtle: colors.gray[100], // gray-100
                         DEFAULT: colors.white, // white
                         emphasis: colors.gray[700], // gray-700
@@ -40,11 +48,11 @@ export default {
                         subtle: colors.gray[400], // gray-400
                         DEFAULT: colors.gray[500], // gray-500
                         emphasis: colors.gray[700], // gray-700
-                        strong: colors.gray[900], // gray-900
+                        strong: '#2C3E50', // Slate Blue for strong text
                         inverted: colors.white, // white
                     },
                 },
-                // dark mode
+                // dark mode (keeping as is for now, but could be updated later)
                 "dark-tremor": {
                     brand: {
                         faint: "#0B1229", // custom
@@ -75,26 +83,25 @@ export default {
                     },
                 },
             },
-            boxShadow: {
-                // light
-                "tremor-input": "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-                "tremor-card": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
-                "tremor-dropdown": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
-                // dark
-                "dark-tremor-input": "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-                "dark-tremor-card": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
-                "dark-tremor-dropdown": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
-            },
-            borderRadius: {
-                "tremor-small": "0.375rem",
-                "tremor-default": "0.5rem",
-                "tremor-full": "9999px",
+            fontFamily: {
+                'heading': ['Merriweather', 'serif'],
+                'body': ['Inter', 'sans-serif'],
+                'sans': ['Inter', 'sans-serif'], // Override default sans
             },
             fontSize: {
+                'body': '14px',
+                'label': '16px',
                 "tremor-label": ["0.75rem", { lineHeight: "1rem" }],
                 "tremor-default": ["0.875rem", { lineHeight: "1.25rem" }],
                 "tremor-title": ["1.125rem", { lineHeight: "1.75rem" }],
                 "tremor-metric": ["1.875rem", { lineHeight: "2.25rem" }],
+            },
+            borderRadius: {
+                'card': '12px',
+                'card-lg': '16px',
+                "tremor-small": "0.375rem",
+                "tremor-default": "0.5rem",
+                "tremor-full": "9999px",
             },
         },
     },
