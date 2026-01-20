@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { debugUtils } from '../../utils/debugUtils';
 import type {
     ContributionYear,
     MemberContribution,
@@ -288,8 +289,9 @@ export const contributionService = {
     async getYearTransactions(yearId: string): Promise<any[]> {
         const { data, error } = await supabase
             .from('bank_transactions')
-            .select('amount, linked_member_id, booking_date')
+            .select('amount, linked_member_id, booking_date, category:financial_categories!inner(name)')
             .eq('contribution_year_id', yearId)
+            .eq('category.name', 'Ledenbijdrage')
             .not('linked_member_id', 'is', null);
 
         if (error) throw error;
@@ -364,11 +366,11 @@ export const contributionService = {
 
                 if (!profileCheck) {
                     // This is an orphan transaction. We log it and skip to prevent 500/409 errors.
-                    console.warn(`[reconcileYear] Skipping orphaned memberId ${memberId} (not found in profiles). Warning: Transaction linked to invalid member.`);
+                    debugUtils.warn(`[reconcileYear] Skipping orphaned memberId ${memberId} (not found in profiles). Warning: Transaction linked to invalid member.`);
                     continue;
                 }
 
-                console.log(`[reconcileYear] Creating missing contribution for member ${memberId}, year ${yearId}`);
+                debugUtils.log(`[reconcileYear] Creating missing contribution for member ${memberId}, year ${yearId}`);
 
                 // Use UPSERT with explicit onConflict constraint name/fields
                 // NOTE: 'year_id,member_id' NO SPACES for Supabase/PostgREST matching
@@ -502,11 +504,11 @@ export const contributionService = {
         const startOfYear = `${yearString}-01-01`;
         const endOfYear = `${yearString}-12-31`;
 
+        // Fetch all transactions linked to this member, regardless of category
         const { data: txs } = await supabase
             .from('bank_transactions')
-            .select('*, category:financial_categories!inner(name)')
+            .select('*, category:financial_categories(name)')
             .eq('linked_member_id', memberId)
-            .eq('category.name', 'Ledenbijdrage')
             .order('booking_date', { ascending: false });
 
         if (!txs) return [];

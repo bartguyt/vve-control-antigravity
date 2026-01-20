@@ -21,13 +21,11 @@ import {
 import {
     PlusIcon,
     BanknotesIcon,
-    ArrowPathIcon,
     UserGroupIcon,
-    CalculatorIcon,
     Cog6ToothIcon,
     PencilSquareIcon
 } from '@heroicons/react/24/outline';
-import { supabase } from '../../lib/supabase';
+import { debugUtils } from '../../utils/debugUtils';
 import { contributionService } from './contributionService';
 import { memberService } from '../members/memberService';
 import type {
@@ -238,17 +236,7 @@ export const ContributionsPage: React.FC = () => {
         }
     };
 
-    const handleGenerate = async () => {
-        if (!selectedYearId) return;
-        try {
-            const result = await contributionService.generateForYear(selectedYearId);
-            toast.success(`${result.created} bijdrages geupdate/aangemaakt`);
-            const fetched = await contributionService.getContributions(selectedYearId);
-            setContributions(fetched);
-        } catch (e: any) {
-            toast.error(e.message || 'Kon bijdrages niet genereren');
-        }
-    };
+    // Removed handleGenerate - member_contributions are now auto-created by database trigger
 
     const handleAssignGroup = async (memberId: string, groupId: string) => {
         try {
@@ -325,17 +313,7 @@ export const ContributionsPage: React.FC = () => {
         }
     };
 
-    const handleReconcile = async () => {
-        if (!selectedYearId) return;
-        try {
-            const res = await contributionService.reconcileYear(selectedYearId);
-            toast.success(`${res.processed} gecontroleerd, ${res.updated} geupdate`);
-            const fetched = await contributionService.getContributions(selectedYearId);
-            setContributions(fetched);
-        } catch (e: any) {
-            toast.error(e.message || 'Fout bij verwerken');
-        }
-    };
+    // Removed handleReconcile - no longer needed with real-time calculation
 
     const handleOpenTxDetails = async (member: Profile) => {
         if (!selectedYearId) return;
@@ -369,17 +347,17 @@ export const ContributionsPage: React.FC = () => {
     const selectedYear = years.find(y => y.id === selectedYearId);
 
     // Calculate paid amounts from payment records
-    console.groupCollapsed('[ContributionsPage] Rendering Details');
-    console.log('Payment Records (raw transactions):', paymentRecords.length);
+    debugUtils.groupCollapsed('[ContributionsPage] Rendering Details');
+    debugUtils.log('Payment Records (raw transactions):', paymentRecords.length);
 
     const paidByMember = new Map<string, number>();
     paymentRecords.forEach(record => {
         const current = paidByMember.get(record.member_id) || 0;
         paidByMember.set(record.member_id, current + (record.amount || 0));
     });
-    console.log('PaidByMember Map Size:', paidByMember.size);
+    debugUtils.log('PaidByMember Map Size:', paidByMember.size);
     if (paidByMember.size > 0) {
-        console.log('Sample Payments:', Object.fromEntries(Array.from(paidByMember.entries()).slice(0, 5)));
+        debugUtils.log('Sample Payments:', Object.fromEntries(Array.from(paidByMember.entries()).slice(0, 5)));
     }
 
     // Enrich contributions with yearly amounts and payment data
@@ -446,12 +424,8 @@ export const ContributionsPage: React.FC = () => {
                                             <Button variant="secondary" icon={Cog6ToothIcon} onClick={() => setIsGroupSettingsOpen(true)}>
                                                 Instellingen
                                             </Button>
-                                            <Button variant="secondary" icon={CalculatorIcon} onClick={handleReconcile}>
-                                                Verwerk Transacties
-                                            </Button>
-                                            <Button variant="secondary" icon={ArrowPathIcon} onClick={handleGenerate}>
-                                                Update Lijst
-                                            </Button>
+                                            {/* Removed Verwerk Transacties button - obsolete with real-time calculation */}
+                                            {/* Removed Update Lijst button - member_contributions auto-created by trigger */}
                                         </>
                                     )}
                                 </div>

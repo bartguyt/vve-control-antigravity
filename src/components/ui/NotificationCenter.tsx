@@ -8,6 +8,7 @@ import { associationService } from '../../lib/association';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
 import { formatRelativeTime } from '../../utils/dateUtils';
+import { debugUtils } from '../../utils/debugUtils';
 
 export const NotificationCenter: React.FC = () => {
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -20,7 +21,7 @@ export const NotificationCenter: React.FC = () => {
             const count = data.filter(n => n.status === 'unread').length;
             setUnreadCount(count);
         } catch (e) {
-            console.error('Error loading notifications', e);
+            debugUtils.error('Error loading notifications', e);
         }
     };
 
@@ -40,7 +41,7 @@ export const NotificationCenter: React.FC = () => {
                 currentAssociationId = await associationService.getCurrentAssociationId();
 
                 if (!currentAssociationId) {
-                    console.warn('No association ID found for realtime subscription');
+                    debugUtils.warn('No association ID found for realtime subscription');
                     return null;
                 }
 
@@ -56,17 +57,17 @@ export const NotificationCenter: React.FC = () => {
                             filter: `association_id=eq.${currentAssociationId}`
                         },
                         (payload) => {
-                            console.log('✅ Notification change received via Realtime!', payload);
+                            debugUtils.log('✅ Notification change received via Realtime!', payload);
                             loadNotifications();
                         }
                     )
                     .subscribe((status) => {
-                        console.log('Realtime subscription status:', status);
+                        debugUtils.log('Realtime subscription status:', status);
                     });
 
                 return channel;
             } catch (e) {
-                console.error('Failed to setup realtime:', e);
+                debugUtils.error('Failed to setup realtime:', e);
                 return null;
             }
         };
@@ -98,7 +99,7 @@ export const NotificationCenter: React.FC = () => {
             await notificationService.markAsRead(id);
             loadNotifications();
         } catch (e) {
-            console.error(e);
+            debugUtils.error(e);
         }
     };
 

@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { debugUtils } from '../../utils/debugUtils';
 import type { Profile } from '../../types/database';
 import { activityService } from '../../services/activityService';
 import { associationService } from '../../lib/association';
@@ -274,7 +275,7 @@ export const memberService = {
 
         if (!member.profile_id) {
             // Unit is empty? Maybe delete the unit?
-            console.warn('Deleting member unit which has no profile attached:', memberId);
+            debugUtils.warn('Deleting member unit which has no profile attached:', memberId);
             // If the user wants to delete the "Line", we delete the Unit.
             const { error } = await supabase.from('members').delete().eq('id', memberId);
             if (error) throw error;
@@ -358,7 +359,7 @@ export const memberService = {
         if (profileId) {
             const { error: deleteProfileError } = await supabase.from('profiles').delete().eq('id', profileId);
             if (deleteProfileError) {
-                console.warn('Failed to delete profile after member delete', deleteProfileError);
+                debugUtils.warn('Failed to delete profile after member delete', deleteProfileError);
             }
         }
     },
@@ -433,7 +434,7 @@ export const memberService = {
                 .delete()
                 .in('id', safeProfileIds);
 
-            if (deleteProfileError) console.warn('Bulk delete profiles warning', deleteProfileError);
+            if (deleteProfileError) debugUtils.warn('Bulk delete profiles warning', deleteProfileError);
         }
 
         return {

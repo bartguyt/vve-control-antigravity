@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { debugUtils } from '../../utils/debugUtils';
 // import type { BankTransaction } from '../../types/database';
 import { associationService } from '../../lib/association';
 import { extractYearFromDescription, extractMonthsFromDescription, getMonthName } from '../../utils/transactionUtils';
@@ -281,7 +282,10 @@ export const bankService = {
     async getTransactions(accountId: string) {
         const { data } = await supabase
             .from('bank_transactions')
-            .select('*')
+            .select(`
+                *,
+                linked_member:profiles(id, first_name, last_name, email)
+            `)
             .eq('account_id', accountId)
             .order('booking_date', { ascending: false });
 
@@ -444,7 +448,7 @@ export const bankService = {
                 // Assign to earliest N months
                 finalMonths = months.slice(0, numMonthsCovered).sort((a, b) => a - b);
 
-                console.warn(
+                debugUtils.warn(
                     `Transaction ${transactionId}: Partial payment €${totalAmount} ` +
                     `covers ${numMonthsCovered} of ${months.length} months. ` +
                     `Assigned to: ${finalMonths.map(m => getMonthName(m)).join(', ')}`
@@ -464,7 +468,7 @@ export const bankService = {
                     finalMonths = [fallbackMonth];
                 }
 
-                console.warn(
+                debugUtils.warn(
                     `Transaction ${transactionId}: Amount €${totalAmount} insufficient ` +
                     `for any month (€${expectedMonthlyAmount} required). ` +
                     `Falling back to booking_date month.`

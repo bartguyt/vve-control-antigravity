@@ -23,6 +23,7 @@ import {
     Badge
 } from '@tremor/react';
 import { supabase } from '../../lib/supabase';
+import { debugUtils } from '../../utils/debugUtils';
 import {
     BuildingOfficeIcon,
     UserGroupIcon,
@@ -76,7 +77,7 @@ export const AdminDashboardPage: React.FC = () => {
                 const emailQueueList = await superAdminService.getEmailQueue();
                 setEmailQueue(emailQueueList);
             } catch (e) {
-                console.warn('Could not fetch email queue:', e);
+                debugUtils.warn('Could not fetch email queue:', e);
                 // toast.error('Email wachtrij niet bereikbaar'); // Optional
             }
         } catch (error) {

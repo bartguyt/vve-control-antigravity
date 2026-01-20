@@ -4,6 +4,7 @@ import { superAdminService, type AdminInvite, type EmailLog } from './superAdmin
 import { toast } from 'sonner';
 import { ClipboardDocumentCheckIcon, EnvelopeIcon, ServerStackIcon, ClockIcon, UserGroupIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { supabase } from '../../lib/supabase';
+import { debugUtils } from '../../utils/debugUtils';
 
 export const SuperAdminPage: React.FC = () => {
     const [invites, setInvites] = useState<AdminInvite[]>([]);
@@ -88,7 +89,7 @@ export const SuperAdminPage: React.FC = () => {
             if (!mailError) {
                 toast.success('Email in wachtrij geplaatst');
             } else {
-                console.warn('Mail queue failed', mailError);
+                debugUtils.warn('Mail queue failed', mailError);
                 toast.info('Kon email niet direct versturen, gebruik de link.');
             }
 

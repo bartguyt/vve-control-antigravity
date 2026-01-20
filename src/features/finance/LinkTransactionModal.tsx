@@ -240,7 +240,7 @@ export const LinkTransactionModal: React.FC<Props> = ({
                                             <div className="text-xs text-gray-500">{m.street} {m.house_number}</div>
                                         </div>
                                     </div>
-                                    <Button size="xs" variant="secondary" loading={linking} onClick={() => handleLinkMember(m.id)}>
+                                    <Button size="xs" variant="secondary" loading={linking} onClick={() => handleLinkMember((m as any).profile_id || m.id)}>
                                         Koppelen
                                     </Button>
                                 </ListItem>

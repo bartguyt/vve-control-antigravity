@@ -3,6 +3,7 @@ import { Card, Title, Text, List, ListItem, Flex, Badge, Icon, Button } from '@t
 import { BuildingOfficeIcon } from '@heroicons/react/24/outline';
 import { memberService } from '../members/memberService';
 import { supabase } from '../../lib/supabase';
+import { debugUtils } from '../../utils/debugUtils';
 import type { AssociationMembership } from '../../types/database';
 
 export const AssociationsWidget: React.FC = () => {
@@ -21,7 +22,7 @@ export const AssociationsWidget: React.FC = () => {
 
                 const data = await Promise.all(activeMemberships.map(async (m) => {
                     if (!m.association_id) {
-                        console.warn('Membership missing association_id:', m);
+                        debugUtils.warn('Membership missing association_id:', m);
                         return null;
                     }
 

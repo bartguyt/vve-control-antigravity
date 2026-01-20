@@ -82,11 +82,10 @@ export const BankAccountPage: React.FC = () => {
     const loadTransactions = async (accountId: string) => {
         try {
             const data = await bankService.getTransactions(accountId);
-            const members = await memberService.getMembers();
             const dataWithNames = data.map((tx: any) => ({
                 ...tx,
-                linked_member_name: tx.linked_member_id
-                    ? members.find(m => m.id === tx.linked_member_id)?.last_name
+                linked_member_name: tx.linked_member
+                    ? `${tx.linked_member.first_name} ${tx.linked_member.last_name}`
                     : undefined
             }));
 
