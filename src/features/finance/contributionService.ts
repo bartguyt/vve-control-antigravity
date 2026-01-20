@@ -504,16 +504,18 @@ export const contributionService = {
         const startOfYear = `${yearString}-01-01`;
         const endOfYear = `${yearString}-12-31`;
 
-        // Fetch all transactions linked to this member, regardless of category
+        // Fetch transactions linked to this member with Ledenbijdrage category
+        // This matches the filter used in getYearTransactions for consistency
         const { data: txs } = await supabase
             .from('bank_transactions')
-            .select('*, category:financial_categories(name)')
+            .select('*, category:financial_categories!inner(name)')
             .eq('linked_member_id', memberId)
+            .eq('category.name', 'Ledenbijdrage')
             .order('booking_date', { ascending: false });
 
         if (!txs) return [];
 
-        // Return all that would match the reconcile logic
+        // Return all that match the year
         return txs.filter(tx => {
             const isCredit = tx.amount > 0;
             if (!isCredit) return false;
