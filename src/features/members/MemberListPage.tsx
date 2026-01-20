@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { memberService } from './memberService';
 import type { Profile } from '../../types/database';
-import { supabase } from '../../lib/supabase';
 import { AddMemberModal } from './AddMemberModal';
 import { EditMemberModal } from './EditMemberModal';
 import { toast } from 'sonner';
@@ -15,10 +14,8 @@ import {
 import {
     UserIcon,
     PencilSquareIcon,
-    ArrowRightOnRectangleIcon,
     TrashIcon,
-    ShieldCheckIcon,
-    Cog6ToothIcon
+    ShieldCheckIcon
 } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -64,11 +61,6 @@ export const MemberListPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
-
-    const handleLogout = async () => {
-        await supabase.auth.signOut();
-        navigate('/login');
     };
 
     const canManageMembers = (() => {
@@ -155,20 +147,6 @@ export const MemberListPage: React.FC = () => {
                         Verwijder ({selectedIds.size})
                     </Button>
                 )}
-                <Button
-                    icon={Cog6ToothIcon}
-                    variant="secondary"
-                    onClick={() => navigate('/settings?tab=1')}
-                >
-                    Instellingen
-                </Button>
-                <Button
-                    icon={ArrowRightOnRectangleIcon}
-                    variant="secondary"
-                    onClick={handleLogout}
-                >
-                    Uitloggen
-                </Button>
             </PageHeader>
 
             <Card>
@@ -183,7 +161,6 @@ export const MemberListPage: React.FC = () => {
                     selectedIds={selectedIds}
                     onSelectionChange={setSelectedIds}
                     isItemDeletable={isMemberDeletable}
-                    onSettingsClick={() => navigate('/settings?tab=1')}
                     renderCell={(member, colId) => {
                         const effectiveRole = member.association_memberships?.[0]?.role || 'member';
                         switch (colId) {

@@ -185,14 +185,14 @@ export const BankAccountPage: React.FC = () => {
                         <Title>Bankrekeningen</Title>
                         <Text>Er zijn nog geen bankrekeningen gekoppeld.</Text>
                     </div>
-                    <Button variant="secondary" icon={ArrowsRightLeftIcon} onClick={() => navigate('/settings')}>
+                    <Button variant="secondary" icon={ArrowsRightLeftIcon} onClick={() => navigate('/system/settings')}>
                         Instellingen
                     </Button>
                 </header>
                 <Card className="text-center p-12">
                     <Text>Configureer uw bankkoppeling in de instellingen om transacties te bekijken.</Text>
                     <div className="mt-6">
-                        <Button icon={PlusIcon} onClick={() => navigate('/settings')}>
+                        <Button icon={PlusIcon} onClick={() => navigate('/system/settings')}>
                             Rekening toevoegen
                         </Button>
                     </div>
@@ -208,7 +208,7 @@ export const BankAccountPage: React.FC = () => {
                     <Title>Bankrekeningen</Title>
                     <Text>Overzicht van uw gekoppelde zakelijke rekeningen en transacties.</Text>
                 </div>
-                <Button variant="secondary" icon={ArrowsRightLeftIcon} onClick={() => navigate('/settings')}>
+                <Button variant="secondary" icon={ArrowsRightLeftIcon} onClick={() => navigate('/system/settings')}>
                     Instellingen
                 </Button>
             </header>

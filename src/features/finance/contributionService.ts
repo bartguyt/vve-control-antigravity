@@ -59,10 +59,6 @@ export const contributionService = {
             return;
         }
 
-        // Upsert assignment using the constraint/unique index if possible,
-        // but since we might not have a clean upsert if ID is unknown, we can try insert/update.
-        // Actually, member_id is unique. So we can upsert.
-        // We do not have the ID though, but we can match on member_id.
         const { error } = await supabase
             .from('member_group_assignments')
             .upsert({ member_id: memberId, group_id: groupId }, { onConflict: 'member_id' });
@@ -177,11 +173,40 @@ export const contributionService = {
     async getContributions(yearId: string): Promise<MemberContribution[]> {
         const { data, error } = await supabase
             .from('member_contributions')
-            .select('*, member:profiles(*), group:contribution_groups(*)')
+            .select(`
+                *, 
+                member:profiles(*), 
+                group:contribution_groups(*),
+                year:contribution_years(*)
+            `)
             .eq('year_id', yearId);
 
         if (error) throw error;
-        return data || [];
+
+        // Also fetch year amounts to enrich the data
+        const { data: yearAmounts } = await supabase
+            .from('contribution_year_amounts')
+            .select('group_id, amount')
+            .eq('year_id', yearId);
+
+        // Create a map of group_id -> amount
+        const amountMap = new Map<string, number>();
+        yearAmounts?.forEach(ya => amountMap.set(ya.group_id, ya.amount));
+
+        // Get default_amount
+        const { data: yearInfo } = await supabase
+            .from('contribution_years')
+            .select('default_amount')
+            .eq('id', yearId)
+            .single();
+
+        const defaultAmount = parseFloat(yearInfo?.default_amount || '0');
+
+        // Enrich contributions with their group's amount
+        return (data || []).map(contrib => ({
+            ...contrib,
+            groupAmount: contrib.group_id ? (amountMap.get(contrib.group_id) || 0) : defaultAmount
+        }));
     },
 
     async generateForYear(yearId: string): Promise<{ created: number }> {
@@ -259,6 +284,24 @@ export const contributionService = {
         return { created: toCreate.length };
     },
 
+    // Get all transactions for a specific year (for direct calculation of paid amounts)
+    async getYearTransactions(yearId: string): Promise<any[]> {
+        const { data, error } = await supabase
+            .from('bank_transactions')
+            .select('amount, linked_member_id, booking_date')
+            .eq('contribution_year_id', yearId)
+            .not('linked_member_id', 'is', null);
+
+        if (error) throw error;
+
+        // Map to match expected format for UI (member_id)
+        return (data || []).map(tx => ({
+            member_id: tx.linked_member_id,
+            amount: tx.amount,
+            date: tx.booking_date
+        }));
+    },
+
     async updateContribution(id: string, updates: Partial<MemberContribution>): Promise<void> {
         const { error } = await supabase
             .from('member_contributions')
@@ -268,13 +311,84 @@ export const contributionService = {
         if (error) throw error;
     },
 
+    async deleteContribution(id: string): Promise<void> {
+        const { error } = await supabase
+            .from('member_contributions')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+    },
+
     async reconcileYear(yearId: string): Promise<{ processed: number, updated: number }> {
         // 1. Get Year Info
-        const { data: year } = await supabase.from('contribution_years').select('year').eq('id', yearId).single();
-        if (!year) throw new Error('Year not found');
-        const yearString = year.year.toString();
+        const { data: year, error: yearError } = await supabase
+            .from('contribution_years')
+            .select('*')
+            .eq('id', yearId)
+            .single();
 
-        // 2. Get all contributions for this year
+        if (yearError || !year) throw new Error('Year not found');
+
+        // 2. Ensure all members with transactions have a contribution record
+        // Get all member IDs linked to this year's transactions
+        const { data: txs } = await supabase
+            .from('bank_transactions')
+            .select('linked_member_id')
+            .eq('contribution_year_id', yearId)
+            .not('linked_member_id', 'is', null);
+
+        const activeMemberIds = new Set(txs?.map(t => t.linked_member_id) || []);
+
+        // Get existing contributions
+        const { data: existingContribs } = await supabase
+            .from('member_contributions')
+            .select('member_id')
+            .eq('year_id', yearId);
+
+        const existingMemberIds = new Set(existingContribs?.map(c => c.member_id) || []);
+
+        // Create missing records
+        for (const memberId of Array.from(activeMemberIds)) {
+            // Check for valid member ID
+            if (!memberId) continue;
+
+            if (!existingMemberIds.has(memberId)) {
+
+                // FOREIGN KEY CHECK: Verify member exists in profiles BEFORE insertion
+                const { data: profileCheck } = await supabase
+                    .from('profiles')
+                    .select('id')
+                    .eq('id', memberId)
+                    .maybeSingle();
+
+                if (!profileCheck) {
+                    // This is an orphan transaction. We log it and skip to prevent 500/409 errors.
+                    console.warn(`[reconcileYear] Skipping orphaned memberId ${memberId} (not found in profiles). Warning: Transaction linked to invalid member.`);
+                    continue;
+                }
+
+                console.log(`[reconcileYear] Creating missing contribution for member ${memberId}, year ${yearId}`);
+
+                // Use UPSERT with explicit onConflict constraint name/fields
+                // NOTE: 'year_id,member_id' NO SPACES for Supabase/PostgREST matching
+                const { error: upsertError } = await supabase.from('member_contributions').upsert({
+                    association_id: year.association_id,
+                    year_id: yearId,
+                    member_id: memberId,
+                    amount_due: year.default_amount,
+                    amount_paid: 0,
+                    status: 'PENDING'
+                }, { onConflict: 'year_id,member_id', ignoreDuplicates: true });
+
+                if (upsertError) {
+                    // Log but don't throw to allow other members to proceed
+                    console.error(`[reconcileYear] Failed to upsert contribution for member ${memberId}:`, upsertError);
+                }
+            }
+        }
+
+        // 3. Re-fetch all contributions to calculate totals
         const { data: contribs } = await supabase
             .from('member_contributions')
             .select('*')
@@ -284,59 +398,33 @@ export const contributionService = {
 
         let updatedCount = 0;
 
-        // 3. For each contribution, find matching transactions
+        // 4. For each contribution, find matching transactions and sum them
         for (const c of contribs) {
-            // Get transactions for this member
-            // We look for transactions where:
-            // - linked_member_id matches
-            // - description contains the year string (e.g. "2025") OR transaction date is in that year?
-            // User request: "per jaartal dat is genoemd in de omschrijving" OR "binnengekomen transacties per jaar"
-            // Let's being strict first: Description MUST contain year OR date is in year.
-
-            const startOfYear = `${yearString}-01-01`;
-            const endOfYear = `${yearString}-12-31`;
-
-            const { data: txs } = await supabase
+            // Updated Logic: Only look at transactions attached to this year
+            const { data: memberTxs } = await supabase
                 .from('bank_transactions')
-                .select('amount, description, booking_date, category:financial_categories!inner(name), contribution_year_id')
+                .select('amount, contribution_year_id')
                 .eq('linked_member_id', c.member_id)
-                .eq('association_id', c.association_id)
-                .eq('category.name', 'Ledenbijdrage'); // Use joined category name
-
-            if (!txs?.length) continue;
+                .eq('contribution_year_id', yearId);
 
             let paidSum = 0;
-
-            for (const tx of txs) {
-                // Filter logic
-                const isCredit = tx.amount > 0; // Incoming money
-                if (!isCredit) continue;
-
-                // Priority Logic:
-                // 1. If contribution_year_id is set, it MUST match the target year.
-                // 2. If contribution_year_id is NOT set, use the booking_date.
-
-                let matchesYear = false;
-
-                if (tx.contribution_year_id) {
-                    matchesYear = tx.contribution_year_id === yearId;
-                } else {
-                    matchesYear = tx.booking_date >= startOfYear && tx.booking_date <= endOfYear;
-                }
-
-                if (matchesYear) {
-                    paidSum += tx.amount;
+            if (memberTxs) {
+                for (const tx of memberTxs) {
+                    if (tx.amount > 0) paidSum += tx.amount;
                 }
             }
 
             // Update Contribution if changed
-            // Allow small float diffs
             if (Math.abs(paidSum - (c.amount_paid || 0)) > 0.01) {
                 let status: 'PENDING' | 'PARTIAL' | 'PAID' | 'OVERDUE' = 'PENDING';
-                if (paidSum >= c.amount_due) status = 'PAID';
+                const due = c.amount_due || 0;
+
+                if (paidSum >= due && due > 0) status = 'PAID';
                 else if (paidSum > 0) status = 'PARTIAL';
 
-                // Only update if status or amount changes
+                // Special case: if due is 0 (unconfigured) but paid > 0, assume PAID
+                if (due === 0 && paidSum > 0) status = 'PAID';
+
                 await supabase
                     .from('member_contributions')
                     .update({

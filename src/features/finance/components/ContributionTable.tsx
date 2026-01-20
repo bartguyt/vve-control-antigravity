@@ -11,7 +11,7 @@ import {
     Button,
     Text
 } from '@tremor/react';
-import { ArrowUturnLeftIcon, EnvelopeIcon, DocumentMagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { ArrowUturnLeftIcon, EnvelopeIcon, DocumentMagnifyingGlassIcon, TrashIcon } from '@heroicons/react/24/outline';
 import type { MemberContribution, Profile } from '../../../types/database';
 
 interface ContributionTableProps {
@@ -20,6 +20,7 @@ interface ContributionTableProps {
     onUndoPaid: (c: MemberContribution) => void;
     onViewDetails: (member: Profile) => void;
     onRemind: (c: MemberContribution) => void;
+    onDelete?: (id: string) => void;
 }
 
 export const ContributionTable: React.FC<ContributionTableProps> = ({
@@ -27,7 +28,8 @@ export const ContributionTable: React.FC<ContributionTableProps> = ({
     onMarkPaid,
     onUndoPaid,
     onViewDetails,
-    onRemind
+    onRemind,
+    onDelete
 }) => {
     return (
         <Card>
@@ -36,10 +38,10 @@ export const ContributionTable: React.FC<ContributionTableProps> = ({
                     <TableRow>
                         <TableHeaderCell>Lid</TableHeaderCell>
                         <TableHeaderCell>Groep</TableHeaderCell>
-                        <TableHeaderCell>Status</TableHeaderCell>
                         <TableHeaderCell className="text-right">Bedrag</TableHeaderCell>
                         <TableHeaderCell className="text-right">Betaald</TableHeaderCell>
                         <TableHeaderCell className="text-right">Openstaand</TableHeaderCell>
+                        <TableHeaderCell className="text-right">Overschot</TableHeaderCell>
                         <TableHeaderCell>Acties</TableHeaderCell>
                     </TableRow>
                 </TableHead>
@@ -53,6 +55,9 @@ export const ContributionTable: React.FC<ContributionTableProps> = ({
                     ) : (
                         contributions.map(c => {
                             const outstanding = (c.amount_due || 0) - (c.amount_paid || 0);
+                            const surplus = outstanding < 0 ? Math.abs(outstanding) : 0;
+                            const actualOutstanding = outstanding > 0 ? outstanding : 0;
+
                             return (
                                 <TableRow key={c.id}>
                                     <TableCell>
@@ -63,54 +68,40 @@ export const ContributionTable: React.FC<ContributionTableProps> = ({
                                         {c.group ? (
                                             <Badge color="blue" size="xs">{c.group.name}</Badge>
                                         ) : (
-                                            <Text className="text-xs text-gray-400">
+                                            <Badge color="gray" size="xs">
                                                 {c.year?.base_rate_name || 'Standaard'}
-                                            </Text>
+                                            </Badge>
                                         )}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge color={
-                                            c.status === 'PAID' ? 'emerald' :
-                                                c.status === 'PARTIAL' ? 'yellow' :
-                                                    c.status === 'OVERDUE' ? 'red' : 'gray'
-                                        }>
-                                            {c.status}
-                                        </Badge>
                                     </TableCell>
                                     <TableCell className="text-right">€ {c.amount_due?.toFixed(2)}</TableCell>
                                     <TableCell className="text-right">€ {c.amount_paid?.toFixed(2)}</TableCell>
                                     <TableCell className="text-right">
-                                        <Text color={outstanding > 0 ? "red" : "emerald"}>
-                                            € {outstanding?.toFixed(2)}
+                                        <Text color={actualOutstanding > 0 ? "red" : "emerald"}>
+                                            € {actualOutstanding.toFixed(2)}
                                         </Text>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        {surplus > 0 ? (
+                                            <Text color="blue">€ {surplus.toFixed(2)}</Text>
+                                        ) : (
+                                            <Text className="text-gray-400">€ 0.00</Text>
+                                        )}
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex gap-2 justify-end">
-                                            {outstanding > 0 && (
+                                            {(c as any).isGhost && onDelete && (
                                                 <Button
                                                     size="xs"
                                                     variant="secondary"
-                                                    icon={EnvelopeIcon}
-                                                    color="orange"
-                                                    disabled={outstanding <= 0}
-                                                    onClick={() => onRemind(c)}
-                                                    tooltip="Stuur Herinnering"
+                                                    color="red"
+                                                    icon={TrashIcon}
+                                                    onClick={() => onDelete(c.id)}
+                                                    tooltip="Verwijder Spookregistratie"
                                                 >
-                                                    Herinner
+                                                    Verwijder
                                                 </Button>
                                             )}
-
-                                            {c.status !== 'PAID' && (
-                                                <Button size="xs" variant="secondary" onClick={() => onMarkPaid(c)}>
-                                                    Betaald
-                                                </Button>
-                                            )}
-                                            {c.status === 'PAID' && (
-                                                <Button size="xs" variant="light" color="red" icon={ArrowUturnLeftIcon} onClick={() => onUndoPaid(c)}>
-                                                    Ongedaan
-                                                </Button>
-                                            )}
-                                            {c.member && (
+                                            {c.member && !((c as any).isGhost) && (
                                                 <Button
                                                     size="xs"
                                                     variant="light"

@@ -27,6 +27,7 @@ import {
     Cog6ToothIcon,
     PencilSquareIcon
 } from '@heroicons/react/24/outline';
+import { supabase } from '../../lib/supabase';
 import { contributionService } from './contributionService';
 import { memberService } from '../members/memberService';
 import type {
@@ -55,12 +56,14 @@ export const ContributionsPage: React.FC = () => {
     const [groups, setGroups] = useState<ContributionGroup[]>([]);
     const [members, setMembers] = useState<Profile[]>([]);
     const [assignments, setAssignments] = useState<MemberGroupAssignment[]>([]);
+    const [paymentRecords, setPaymentRecords] = useState<any[]>([]);
 
     // UI State
     const [isCreateYearOpen, setIsCreateYearOpen] = useState(false);
     const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
     const [isGroupSettingsOpen, setIsGroupSettingsOpen] = useState(false);
     const [isTxModalOpen, setIsTxModalOpen] = useState(false);
+    const [viewMode, setViewMode] = useState<'year' | 'prorated'>('year');
 
     // Reminder State
     const [isReminderOpen, setIsReminderOpen] = useState(false);
@@ -105,6 +108,10 @@ export const ContributionsPage: React.FC = () => {
                 const fetchedContribs = await contributionService.getContributions(yearId);
                 setContributions(fetchedContribs);
 
+                // Fetch direct transactions for live calculation
+                const txs = await contributionService.getYearTransactions(yearId);
+                setPaymentRecords(txs);
+
                 // Fetch amounts for settings
                 const amounts = await contributionService.getYearAmounts(yearId);
                 const amtMap: Record<string, number> = {};
@@ -132,6 +139,11 @@ export const ContributionsPage: React.FC = () => {
         if (selectedYearId) {
             contributionService.getContributions(selectedYearId)
                 .then(setContributions)
+                .catch(console.error);
+
+            // Fetch direct transactions
+            contributionService.getYearTransactions(selectedYearId)
+                .then(setPaymentRecords)
                 .catch(console.error);
 
             contributionService.getYearAmounts(selectedYearId)
@@ -355,8 +367,52 @@ export const ContributionsPage: React.FC = () => {
 
     // --- Computed ---
     const selectedYear = years.find(y => y.id === selectedYearId);
-    const totalDue = contributions.reduce((sum, c) => sum + (c.amount_due || 0), 0);
-    const totalPaid = contributions.reduce((sum, c) => sum + (c.amount_paid || 0), 0);
+
+    // Calculate paid amounts from payment records
+    console.groupCollapsed('[ContributionsPage] Rendering Details');
+    console.log('Payment Records (raw transactions):', paymentRecords.length);
+
+    const paidByMember = new Map<string, number>();
+    paymentRecords.forEach(record => {
+        const current = paidByMember.get(record.member_id) || 0;
+        paidByMember.set(record.member_id, current + (record.amount || 0));
+    });
+    console.log('PaidByMember Map Size:', paidByMember.size);
+    if (paidByMember.size > 0) {
+        console.log('Sample Payments:', Object.fromEntries(Array.from(paidByMember.entries()).slice(0, 5)));
+    }
+
+    // Enrich contributions with yearly amounts and payment data
+    const currentMonth = new Date().getMonth() + 1; // 1-12
+    const paymentFrequency = selectedYear?.payment_frequency || 'monthly';
+
+    const enrichedContributions = contributions.map(contrib => {
+        // Get amount from the enriched groupAmount field (added by getContributions)
+        const baseAmount = (contrib as any).groupAmount || 0;
+
+        // Calculate monthly and yearly based on payment frequency setting
+        const monthlyAmount = paymentFrequency === 'monthly' ? baseAmount : baseAmount / 12;
+        const yearlyAmount = paymentFrequency === 'yearly' ? baseAmount : baseAmount * 12;
+        const paidAmount = paidByMember.get(contrib.member_id) || 0;
+
+        // Removed verbose logging - check base amounts if needed
+
+        const expectedAmount = viewMode === 'year'
+            ? yearlyAmount
+            : monthlyAmount * currentMonth;
+
+        return {
+            ...contrib,
+            amount_due: expectedAmount,
+            amount_paid: paidAmount,
+            yearlyAmount,
+            monthlyAmount
+        };
+    });
+    // Calculation complete
+
+    const totalDue = enrichedContributions.reduce((sum, c) => sum + (c.amount_due || 0), 0);
+    const totalPaid = enrichedContributions.reduce((sum, c) => sum + (c.amount_paid || 0), 0);
     const progress = totalDue > 0 ? (totalPaid / totalDue) * 100 : 0;
 
     return (
@@ -399,9 +455,31 @@ export const ContributionsPage: React.FC = () => {
                                         </>
                                     )}
                                 </div>
-                                <Button icon={PlusIcon} onClick={() => setIsCreateYearOpen(true)}>
-                                    Nieuw Boekjaar
-                                </Button>
+                                <div className="flex gap-4 items-center">
+                                    <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                                        <button
+                                            onClick={() => setViewMode('year')}
+                                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'year'
+                                                ? 'bg-white text-blue-600 shadow-sm'
+                                                : 'text-gray-600 hover:text-gray-900'
+                                                }`}
+                                        >
+                                            Jaar totaal
+                                        </button>
+                                        <button
+                                            onClick={() => setViewMode('prorated')}
+                                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'prorated'
+                                                ? 'bg-white text-blue-600 shadow-sm'
+                                                : 'text-gray-600 hover:text-gray-900'
+                                                }`}
+                                        >
+                                            Tot nu toe
+                                        </button>
+                                    </div>
+                                    <Button icon={PlusIcon} onClick={() => setIsCreateYearOpen(true)}>
+                                        Nieuw Boekjaar
+                                    </Button>
+                                </div>
                             </div>
 
                             <ContributionSummary
@@ -411,11 +489,26 @@ export const ContributionsPage: React.FC = () => {
                             />
 
                             <ContributionTable
-                                contributions={contributions}
+                                contributions={enrichedContributions.map(c => ({
+                                    ...c,
+                                    isGhost: !members.some(m => m.profile_id === c.member_id)
+                                }))}
                                 onMarkPaid={handleMarkPaid}
                                 onUndoPaid={handleUndoPaid}
                                 onViewDetails={handleOpenTxDetails}
                                 onRemind={handleRemind}
+                                onDelete={async (id) => {
+                                    if (confirm('Weet u zeker dat u deze (spook)registratie wilt verwijderen?')) {
+                                        try {
+                                            await contributionService.deleteContribution(id);
+                                            toast.success('Registratie verwijderd');
+                                            loadData(); // Refresh
+                                        } catch (e) {
+                                            console.error(e);
+                                            toast.error('Kon registratie niet verwijderen');
+                                        }
+                                    }
+                                }}
                             />
                         </div>
                     </TabPanel>
@@ -472,7 +565,10 @@ export const ContributionsPage: React.FC = () => {
                                     </TableHead>
                                     <TableBody>
                                         {members.map(m => {
-                                            const assign = assignments.find(a => a.member_id === m.id);
+                                            // CRITICAL FIX: Use profile_id (from profiles table) not id (unit_id from members table)
+                                            // member_group_assignments.member_id references profiles.id
+                                            const profileId = (m as any).profile_id || m.id;
+                                            const assign = assignments.find(a => a.member_id === profileId);
                                             return (
                                                 <TableRow key={m.id}>
                                                     <TableCell>{m.first_name} {m.last_name}</TableCell>
@@ -480,7 +576,7 @@ export const ContributionsPage: React.FC = () => {
                                                     <TableCell>
                                                         <Select
                                                             value={assign?.group_id || ''}
-                                                            onValueChange={(val) => handleAssignGroup(m.id, val)}
+                                                            onValueChange={(val) => handleAssignGroup(profileId, val)}
                                                             placeholder="Standaard (Geen groep)"
                                                         >
                                                             <SelectItem value="">Standaard (Geen groep)</SelectItem>

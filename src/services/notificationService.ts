@@ -105,5 +105,54 @@ export const notificationService = {
             });
 
         if (error) throw error;
+    },
+
+    async createPartialPaymentNotification(
+        associationId: string,
+        memberId: string,
+        transactionId: string,
+        monthsRequested: number,
+        monthsCovered: number,
+        amount: number
+    ) {
+        // Get member name
+        const { data: member } = await supabase
+            .from('members')
+            .select('name')
+            .eq('id', memberId)
+            .single();
+
+        // Get transaction details
+        const { data: tx } = await supabase
+            .from('bank_transactions')
+            .select('description, booking_date')
+            .eq('id', transactionId)
+            .single();
+
+        if (!member || !tx) return;
+
+        // Create notification for board members
+        const { error } = await supabase
+            .from('notifications')
+            .insert({
+                association_id: associationId,
+                type: 'partial_payment',
+                priority: 'medium',
+                title: 'Gedeeltelijke betaling ontvangen',
+                message: `${member.name} heeft €${amount.toFixed(2)} betaald voor ${monthsRequested} maanden, ` +
+                    `maar dit dekt slechts ${monthsCovered} maand(en). ` +
+                    `Transactie: "${tx.description}" (${new Date(tx.booking_date).toLocaleDateString('nl-NL')})`,
+                status: 'unread',
+                metadata: {
+                    member_id: memberId,
+                    transaction_id: transactionId,
+                    months_requested: monthsRequested,
+                    months_covered: monthsCovered,
+                    amount: amount
+                },
+                target_role: 'bestuur'
+            });
+
+        if (error) console.error('Failed to create partial payment notification:', error);
     }
 };

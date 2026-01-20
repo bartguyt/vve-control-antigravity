@@ -1,0 +1,49 @@
+// INSTRUCTIES VOOR PERMANENTE FIX VAN TOTAALBEDRAGEN
+// ====================================================
+
+// PROBLEEM:
+// - Standaard groep leden tonen €0.00 in de "Bedrag" kolom
+// - Dit komt omdat contributionService.ts regel 199 `groupAmount: null` zet voor leden zonder group_id
+
+// OPLOSSING:
+// Vervang regels 186-200 in src/features/finance/contributionService.ts met:
+
+        // Also fetch year amounts to enrich the data
+        const { data: yearAmounts } = await supabase
+            .from('contribution_year_amounts')
+            .select('group_id, amount')
+            .eq('year_id', yearId);
+        
+        // CRITICAL FIX: Get year's default_amount for members without a custom group
+        const { data: yearInfo } = await supabase
+            .from('contribution_years')
+            .select('default_amount')
+            .eq('id', yearId)
+            .single();
+        
+        const defaultAmount = parseFloat(yearInfo?.default_amount || '0');
+        
+        // Create a map of group_id -> amount
+        const amountMap = new Map<string, number>();
+        yearAmounts?.forEach(ya => {
+            const amount = parseFloat(ya.amount || '0');
+            amountMap.set(ya.group_id, amount);
+        });
+        
+        // Enrich contributions with their group's amount OR default amount
+        return (data || []).map(contrib => ({
+            ...contrib,
+            groupAmount: contrib.group_id 
+                ? (amountMap.get(contrib.group_id) || 0)
+                : defaultAmount  // <<< DIT IS DE KRITIEKE FIX
+        }));
+
+// WAAROM DIT WERKT:
+// 1. Voor leden MET custom groep (group_id != null): gebruikt bedrag uit contribution_year_amounts
+// 2. Voor leden ZONDER custom groep (group_id == null): gebruikt default_amount uit contribution_years
+// 3. parseFloat() zorgt dat string bedragen ("20.00") worden omgezet naar numbers (20.00)
+
+// NA DEZE FIX:
+// - Standaard groep leden: €20 × 12 = €240 per jaar (2025)
+// - Custom groep "Eigen parkeerplaats": €15 × 12 = €180 per jaar (2025)
+// - Betaald kolom: som van alle transacties voor dat lid in dat jaar

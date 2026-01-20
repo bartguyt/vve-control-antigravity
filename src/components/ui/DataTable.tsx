@@ -16,6 +16,7 @@ import {
     Cog6ToothIcon
 } from '@heroicons/react/24/outline';
 import { useColumnConfig, type ColumnConfig } from '../../hooks/useColumnConfig';
+import { ColumnConfigModal } from './ColumnConfigModal';
 
 interface DataTableProps<T> {
     data: T[];
@@ -27,7 +28,6 @@ interface DataTableProps<T> {
     canManage?: boolean;
     renderActions?: (item: T) => React.ReactNode;
     loading?: boolean;
-    onSettingsClick?: () => void;
     bulkActions?: React.ReactNode;
     selectable?: boolean;
     selectedIds?: Set<string>;
@@ -44,7 +44,6 @@ export function DataTable<T extends { id: string }>({
     renderCell,
     renderActions,
     loading,
-    onSettingsClick,
     bulkActions,
     selectable,
     selectedIds,
@@ -52,7 +51,8 @@ export function DataTable<T extends { id: string }>({
     isItemDeletable
 }: DataTableProps<T>) {
     const [searchTerm, setSearchTerm] = useState('');
-    const { columns } = useColumnConfig(storageKey, defaultColumns);
+    const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
+    const { columns, toggleColumn } = useColumnConfig(storageKey, defaultColumns);
     const visibleColumns = columns.filter(c => c.visible).sort((a, b) => a.order - b.order);
 
     const filteredData = data.filter(item => {
@@ -95,16 +95,14 @@ export function DataTable<T extends { id: string }>({
                 </div>
                 <div className="flex items-center gap-2">
                     {bulkActions}
-                    {onSettingsClick && (
-                        <Button
-                            icon={Cog6ToothIcon}
-                            variant="secondary"
-                            onClick={onSettingsClick}
-                            size="sm"
-                        >
-                            Columns
-                        </Button>
-                    )}
+                    <Button
+                        icon={Cog6ToothIcon}
+                        variant="secondary"
+                        onClick={() => setIsColumnModalOpen(true)}
+                        size="sm"
+                    >
+                        Columns
+                    </Button>
                 </div>
             </div>
 
@@ -178,6 +176,13 @@ export function DataTable<T extends { id: string }>({
                     </Table>
                 </div>
             )}
+
+            <ColumnConfigModal
+                isOpen={isColumnModalOpen}
+                onClose={() => setIsColumnModalOpen(false)}
+                columns={columns}
+                onToggleColumn={toggleColumn}
+            />
         </Card>
     );
 }

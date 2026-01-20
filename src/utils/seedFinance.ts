@@ -37,58 +37,76 @@ export const seedFinanceData = async () => {
 
     const associationId = profile.association_memberships[0].association_id;
 
-    // 2. Create 10 dummy members
-    const newMemberIds: string[] = [];
+    // 2. Fetch existing members (instead of creating new ones)
+    console.log('Fetching existing members...');
+    const { data: existingMembers } = await supabase
+        .from('profiles')
+        .select(`
+            id, 
+            first_name, 
+            last_name,
+            association_memberships!inner(association_id)
+        `)
+        .eq('association_memberships.association_id', associationId);
+
+    const members = existingMembers || [];
     const memberIbans: string[] = [];
 
-    for (let i = 0; i < 10; i++) {
-        const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
-        const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
-        const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}.${Math.floor(Math.random() * 1000)}@dummy.com`;
+    if (members.length === 0) {
+        // Fallback: Create 10 dummy members ONLY if none exist
+        console.log('No members found. Creating 10 dummy members...');
+        for (let i = 0; i < 10; i++) {
+            const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+            const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+            const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}.${Math.floor(Math.random() * 1000)}@dummy.com`;
 
-        // Create Profile (Dummy)
-        const dummyId = uuidv4();
-        const { error: profileError } = await supabase.from('profiles').insert({
-            id: dummyId,
-            user_id: dummyId, // Explicitly set user_id to match our dummy logic
-            email: email,
-            first_name: firstName,
-            last_name: lastName,
-            association_id: associationId,
-            is_super_admin: false
-        });
-
-        if (profileError) {
-            console.error('Error creating profile', profileError);
-            continue;
-        }
-
-        // Add to Association Membership (ignore if exists)
-        const { error: memberError } = await supabase.from('association_memberships').insert({
-            user_id: dummyId,
-            association_id: associationId,
-            role: 'member'
-        });
-
-        // 409 Conflict is fine (duplicate membership), just ignore
-        if (memberError && memberError.code !== '23505') {
-            console.error('Error creating membership', memberError);
-        }
-
-        newMemberIds.push(dummyId);
-
-        // 3. Add 1-2 IBANs per member
-        const numIbans = Math.random() > 0.7 ? 2 : 1;
-        for (let j = 0; j < numIbans; j++) {
-            const iban = generateIBAN();
-            await supabase.from('member_ibans').insert({
-                user_id: dummyId,
-                iban: iban
+            // Create Profile (Dummy)
+            const dummyId = uuidv4();
+            const { error: profileError } = await supabase.from('profiles').insert({
+                id: dummyId,
+                user_id: dummyId, // Explicitly set user_id to match our dummy logic
+                email: email,
+                first_name: firstName,
+                last_name: lastName,
+                association_id: associationId,
+                is_super_admin: false
             });
-            memberIbans.push(iban);
+
+            if (profileError) {
+                console.error('Error creating profile', profileError);
+                continue;
+            }
+
+            // Add to Association Membership
+            const { error: memberError } = await supabase.from('association_memberships').insert({
+                user_id: dummyId,
+                association_id: associationId,
+                role: 'member'
+            });
+
+            if (memberError && memberError.code !== '23505') {
+                console.error('Error creating membership', memberError);
+            }
+
+            members.push({ id: dummyId, first_name: firstName, last_name: lastName } as any);
         }
+    } else {
+        console.log(`Using ${members.length} existing members for seed.`);
     }
-    console.log(`Created ${newMemberIds.length} dummy members.`);
+
+    // Generate IBANs for these members (mock ibans in memory or fetch if they have them)
+    // For seeding, let's just generate fresh mock IBANs mapped to these members IDs for the transactions
+    // We won't insert them into member_ibans to avoid clutter, effectively simulating "unknown" or "new" IBANs
+    // UNLESS we want them to auto-match?
+    // User wants "leden die daadwerkelijk bestaan".
+
+    // Let's generate a map of MemberID -> DummyIBAN for this seed session
+    const memberIbanMap = new Map<string, string>();
+    for (const m of members) {
+        const iban = generateIBAN();
+        memberIbanMap.set(m.id, iban);
+        memberIbans.push(iban);
+    }
 
     // 4. Create 100 Random Transactions
     // Mix of existing IBANs (matches) and random IBANs (no match)
@@ -130,9 +148,11 @@ export const seedFinanceData = async () => {
         let counterName: string;
 
         if (isMatch) {
-            counterIban = memberIbans[Math.floor(Math.random() * memberIbans.length)];
-            // const uniqueNameIdx = Math.floor(Math.random() * firstNames.length);
-            counterName = `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
+            // Pick a random member
+            const randomMember = members[Math.floor(Math.random() * members.length)];
+            // Use the map we created
+            counterIban = memberIbanMap.get(randomMember.id)!;
+            counterName = `${randomMember.first_name} ${randomMember.last_name}`;
         } else {
             // Pick from the RECURRING external pool 90% of the time, 10% completely random
             if (Math.random() < 0.9) {
@@ -177,5 +197,5 @@ export const seedFinanceData = async () => {
     }
 
     console.log('Seeding complete!');
-    return { members: newMemberIds.length, transactions: 100 };
+    return { members: members.length, transactions: 100 };
 };

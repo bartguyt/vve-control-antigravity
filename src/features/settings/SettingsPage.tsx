@@ -55,7 +55,9 @@ import {
     CheckIcon,
     XMarkIcon,
     ListBulletIcon,
-    Bars3Icon
+    Bars3Icon,
+    PlusIcon,
+    ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { useSearchParams } from 'react-router-dom';
 import { seedFinanceData } from '../../utils/seedFinance';
@@ -598,14 +600,12 @@ export const SettingsPage: React.FC = () => {
                                                         onClick={async () => {
                                                             setLoading(true);
                                                             try {
-                                                                const res = await seedFinanceData();
-                                                                if (res) {
-                                                                    alert(`Succes! ${res.members} leden en ${res.transactions} transacties aangemaakt.`);
-                                                                    await refreshBankData();
-                                                                    setSeedModalOpen(false);
-                                                                } else {
-                                                                    alert('Geen Vereniging gevonden of er is iets misgegaan.');
-                                                                }
+                                                                // Use bank connection seed instead
+                                                                const mockRef = `mock-seed-${Date.now()}`;
+                                                                await bankService.saveConnection(mockRef, 'LINKED');
+                                                                await refreshBankData();
+                                                                alert('Succes! 50 transacties aangemaakt.');
+                                                                setSeedModalOpen(false);
                                                             } catch (e: any) {
                                                                 alert('Fout: ' + e.message);
                                                             } finally {
@@ -747,6 +747,29 @@ export const SettingsPage: React.FC = () => {
                                                                 <Button
                                                                     size="xs"
                                                                     variant="secondary"
+                                                                    color="blue"
+                                                                    title="Voeg één willekeurige test transactie toe"
+                                                                    icon={PlusIcon}
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            setLoading(true);
+                                                                            const tx = await bankService.addSingleSeedTransaction(acc.id);
+                                                                            await refreshBankData();
+                                                                            alert(`Transactie toegevoegd: ${tx.description} (€${tx.amount.toFixed(2)})`);
+                                                                        } catch (e: any) {
+                                                                            console.error(e);
+                                                                            alert('Fout: ' + e.message);
+                                                                        } finally {
+                                                                            setLoading(false);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    + Transactie
+                                                                </Button>
+
+                                                                <Button
+                                                                    size="xs"
+                                                                    variant="secondary"
                                                                     color="red"
                                                                     title="Verwijder alle transacties van deze rekening"
                                                                     icon={TrashIcon}
@@ -767,6 +790,55 @@ export const SettingsPage: React.FC = () => {
                                                                     }}
                                                                 >
                                                                     Leegmaken
+                                                                </Button>
+
+                                                                <Button
+                                                                    size="xs"
+                                                                    variant="secondary"
+                                                                    color="red"
+                                                                    title="Verwijder deze rekening volledig"
+                                                                    icon={XMarkIcon}
+                                                                    onClick={async () => {
+                                                                        if (confirm(`LET OP: Weet u zeker dat u de rekening ${acc.name} (${acc.iban}) VOLLEDIG wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`)) {
+                                                                            try {
+                                                                                setLoading(true);
+                                                                                await bankService.deleteAccount(acc.id);
+                                                                                await refreshBankData();
+                                                                                alert('Rekening verwijderd.');
+                                                                            } catch (e: any) {
+                                                                                console.error(e);
+                                                                                alert('Fout: ' + e.message);
+                                                                            } finally {
+                                                                                setLoading(false);
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    Verwijderen
+                                                                </Button>
+                                                            </div>
+
+                                                            <div className="mt-2 text-right">
+                                                                <Button
+                                                                    size="xs"
+                                                                    variant="light"
+                                                                    icon={ArrowPathIcon}
+                                                                    onClick={async () => {
+                                                                        if (confirm('Wilt u alle transacties opnieuw controleren op ontbrekende betalingsregistraties? Dit kan even duren.')) {
+                                                                            try {
+                                                                                setLoading(true);
+                                                                                const count = await bankService.reprocessAccountTransactions(acc.id);
+                                                                                alert(`Klaar! ${count} ontbrekende registraties toegevoegd.`);
+                                                                            } catch (e: any) {
+                                                                                console.error(e);
+                                                                                alert('Fout: ' + e.message);
+                                                                            } finally {
+                                                                                setLoading(false);
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    Herstel Registraties
                                                                 </Button>
                                                             </div>
                                                         </div>
