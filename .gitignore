@@ -32,3 +32,4 @@ dist-ssr
 !supabase/migrations/*.sql
 !src/**/*.sql
 supabase/functions/enable-banking/priv_key.ts
+claude.md
