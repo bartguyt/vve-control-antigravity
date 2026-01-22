@@ -26,4 +26,14 @@ export interface EnableBankingTransaction {
     bookingDate: string;
     valueDate?: string;
     remittanceInformation: string[];
+
+    // Aliases for DB/API compatibility (snake_case)
+    entry_reference?: string;
+    transaction_amount?: {
+        currency: string;
+        amount: string;
+    };
+    credit_debit_indicator?: 'CRDT' | 'DBIT';
+    booking_date?: string;
+    remittance_information?: string[];
 }

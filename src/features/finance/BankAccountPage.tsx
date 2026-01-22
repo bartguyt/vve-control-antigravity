@@ -234,7 +234,7 @@ export const BankAccountPage: React.FC = () => {
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <Text>Huidig Saldo</Text>
-                                            <Metric>€ {acc.balance_amount.toFixed(2)}</Metric>
+                                            <Metric>€ {(acc.balance_amount || 0).toFixed(2)}</Metric>
                                         </div>
                                         <Badge color={acc.account_type === 'SAVINGS' ? 'cyan' : 'indigo'}>
                                             {acc.account_type === 'SAVINGS' ? 'Spaarrekening' : 'Betaalrekening'}

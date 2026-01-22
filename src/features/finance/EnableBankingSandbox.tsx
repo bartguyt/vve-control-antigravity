@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Title, Text, Button, TabGroup, TabList, Tab, TabPanels, TabPanel, Badge, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Select, SelectItem, TextInput } from '@tremor/react';
+import { Card, Title, Text, Button, TabGroup, TabList, Tab, TabPanels, TabPanel, Badge, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Select, SelectItem } from '@tremor/react';
 import { BuildingLibraryIcon, CodeBracketIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import type { EnableBankingTransaction, EnableBankingAccount } from './enableBankingTypes';
 import { supabase } from '../../lib/supabase';
+import { associationService } from '../../lib/association';
 
 export const EnableBankingSandbox: React.FC = () => {
     const [status, setStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
@@ -18,7 +19,7 @@ export const EnableBankingSandbox: React.FC = () => {
     const [loadingBanks, setLoadingBanks] = useState(false);
 
     // Account selection state (after auth)
-    const [accountsList, setAccountsList] = useState<{ uid: string, name: string, iban?: string, currency?: string }[]>([]);
+    const [accountsList, setAccountsList] = useState<{ uid: string, name: string, iban?: string, currency?: string, dbId?: string, last_synced_at?: string }[]>([]);
     const [selectedAccountUid, setSelectedAccountUid] = useState<string>('');
 
     // Date range state for sync
@@ -47,14 +48,215 @@ export const EnableBankingSandbox: React.FC = () => {
             console.log("Auth Code detected:", code);
             // Mark as processing IMMEDIATELY
             sessionStorage.setItem('eb_processed_code', code);
-            // Clean URL to prevent reload issues
-            window.history.replaceState({}, '', window.location.pathname);
+
 
             handleCallback(code);
         } else {
             console.log("No auth code in URL.");
+            // Check if we have an active session in storage to restore
+            const storedSessionId = sessionStorage.getItem('eb_session_id');
+            if (storedSessionId) {
+                console.log("Found stored session ID, restoring...", storedSessionId);
+                restoreSession();
+            } else {
+                // Only if NO session, load persisted data
+                loadPersistedData();
+            }
         }
     }, []);
+
+    // Restore active session from Enable Banking metadata (prevents stale DB data)
+    const restoreSession = async () => {
+        try {
+            setStatus('connecting');
+            addLog("Restoring active session...");
+
+            const { data, error } = await supabase.functions.invoke('enable-banking', {
+                body: { action: 'check_status' }
+            });
+
+            if (error) throw error;
+            if (data?.error) throw new Error(data.error);
+
+            if (data.connected && data.connection) {
+                const accounts = data.connection.metadata?.accounts || [];
+                console.log("Restored accounts from metadata:", accounts);
+
+                // Map to UI format
+                const accountsForUI = accounts.map((acc: any) => ({
+                    uid: acc.uid || acc,
+                    name: acc.name || acc.account_id?.iban || acc.product || 'Account',
+                    iban: acc.account_id?.iban || null,
+                    currency: acc.currency || 'EUR',
+                    bicFi: acc.bic_fi || null,
+                    // Note: We don't have DB ID yet if not synced, so dbId might be undefined
+                    // Checks if it already exists in DB to get dbId/last_synced_at? 
+                    // ideally we merge this with DB knowledge, but for now just showing Active Connection is priority.
+                }));
+
+                // Fetch DB info to merge (get last_synced_at if exists)
+                const associationId = await associationService.getCurrentAssociationId();
+                const { data: dbAccounts } = await supabase
+                    .from('bank_accounts')
+                    .select('external_account_uid, id, last_synced_at')
+                    .eq('association_id', associationId)
+                    .in('external_account_uid', accountsForUI.map((a: any) => a.uid));
+
+                // Merge DB info into UI accounts  
+                const mergedAccounts = accountsForUI.map((uiAcc: any) => {
+                    const dbAcc = dbAccounts?.find(d => d.external_account_uid === uiAcc.uid);
+                    return {
+                        ...uiAcc,
+                        dbId: dbAcc?.id,
+                        last_synced_at: dbAcc?.last_synced_at
+                    };
+                });
+
+                setAccountsList(mergedAccounts);
+                addLog(`Restored session with ${mergedAccounts.length} accounts.`);
+
+                if (mergedAccounts.length > 0) {
+                    setSelectedAccountUid(mergedAccounts[0].uid);
+                }
+                setStatus('connected');
+            } else {
+                console.log("No active connection logic found during restore, falling back.");
+                loadPersistedData();
+            }
+        } catch (e: any) {
+            console.error("Failed to restore session:", e);
+            addLog(`Restore Error: ${e.message}`);
+            loadPersistedData();
+        }
+    };
+
+    // Load persisted bank accounts from database
+    const loadPersistedData = async () => {
+        try {
+            const associationId = await associationService.getCurrentAssociationId();
+
+            // Load bank accounts for this association
+            const { data: accounts, error: accError } = await supabase
+                .from('bank_accounts')
+                .select('*')
+                .eq('association_id', associationId)
+                .eq('is_active', true);
+
+            if (accError) {
+                console.error('Failed to load bank accounts:', accError);
+                return;
+            }
+
+            if (accounts && accounts.length > 0) {
+                addLog(`Loaded ${accounts.length} saved account(s) from database`);
+
+                // Map to the accountsList format
+                const mappedAccounts = accounts.map(acc => ({
+                    uid: acc.external_account_uid,
+                    name: acc.name,
+                    iban: acc.iban,
+                    currency: acc.currency,
+                    dbId: acc.id, // Store database ID for transaction loading
+                    last_synced_at: acc.last_synced_at // Include last sync timestamp
+                }));
+                setAccountsList(mappedAccounts);
+
+                // Auto-select first account (useEffect will load transactions)
+                if (mappedAccounts.length > 0) {
+                    setSelectedAccountUid(mappedAccounts[0].uid);
+                }
+
+                setStatus('connected');
+            }
+        } catch (e) {
+            console.error('Failed to load persisted data:', e);
+        }
+    };
+
+    // Load transactions when account selection changes
+    useEffect(() => {
+        if (!selectedAccountUid || accountsList.length === 0) return;
+
+        const loadTransactionsForAccount = async () => {
+            try {
+                const associationId = await associationService.getCurrentAssociationId();
+
+                // Find the database ID for this account
+                const { data: bankAccount, error: bankAccountError } = await supabase
+                    .from('bank_accounts')
+                    .select('id, name')
+                    .eq('association_id', associationId)
+                    .eq('external_account_uid', selectedAccountUid)
+                    .maybeSingle();
+
+                if (bankAccountError && bankAccountError.code !== 'PGRST116') {
+                    console.error('Error finding bank account:', bankAccountError);
+                    return;
+                }
+
+                if (!bankAccount) {
+                    addLog(`Account ${selectedAccountUid} not found in DB yet (will be saved on first sync)`);
+                    setTransactions([]);
+                    // Also clear the display account if not found
+                    setAccount(null);
+                    return;
+                }
+
+
+                // Load transactions for this account
+                const { data: txData, error } = await supabase
+                    .from('bank_transactions')
+                    .select('*')
+                    .eq('bank_account_id', bankAccount.id)
+                    .order('booking_date', { ascending: false });
+
+                if (error) {
+                    console.error('Failed to load transactions:', error);
+                    return;
+                }
+
+                if (txData && txData.length > 0) {
+                    addLog(`Loaded ${txData.length} transactions for ${bankAccount.name}`);
+                    // Map database format to display format
+                    const mappedTx = txData.map(tx => ({
+                        entry_reference: tx.external_reference,
+                        booking_date: tx.booking_date,
+                        value_date: tx.value_date,
+                        transaction_amount: { amount: String(tx.amount), currency: tx.currency },
+                        credit_debit_indicator: tx.credit_debit,
+                        creditor: tx.credit_debit === 'DBIT' ? { name: tx.counterparty_name } : null,
+                        debtor: tx.credit_debit === 'CRDT' ? { name: tx.counterparty_name } : null,
+                        remittance_information: tx.description ? [tx.description] : [],
+                        status: tx.status
+                    }));
+                    setTransactions(mappedTx as any);
+
+                    // Update account display info
+                    const accInfo = accountsList.find(a => a.uid === selectedAccountUid);
+                    if (accInfo) {
+                        setAccount({ ...accInfo } as any);
+                    }
+                } else {
+                    setTransactions([]);
+                    addLog(`No saved transactions for ${bankAccount.name}`);
+                }
+            } catch (e) {
+                console.error('Failed to load transactions for account:', e);
+            }
+        };
+
+
+
+        // Auto-update date picker based on last sync
+        const accInfo = accountsList.find(a => a.uid === selectedAccountUid);
+        if (accInfo?.last_synced_at) {
+            setDateFrom(new Date(accInfo.last_synced_at).toISOString().split('T')[0]);
+        } else {
+            setDateFrom('2024-01-01');
+        }
+
+        loadTransactionsForAccount();
+    }, [selectedAccountUid, accountsList]);
 
     const handleCallback = async (code: string) => {
         // Prevent double execution if already processing
@@ -250,12 +452,16 @@ export const EnableBankingSandbox: React.FC = () => {
 
         addLog(`Syncing from ${dateFrom} to ${dateTo}...`);
         try {
+            // Get association_id for database persistence
+            const currentAssociationId = await associationService.getCurrentAssociationId();
+
             const { data, error } = await supabase.functions.invoke('enable-banking', {
                 body: {
                     action: 'sync_transactions',
                     account_uid: selectedAccountUid,
                     date_from: dateFrom,
-                    date_to: dateTo
+                    date_to: dateTo,
+                    association_id: currentAssociationId
                 }
             });
 
@@ -265,10 +471,15 @@ export const EnableBankingSandbox: React.FC = () => {
             console.log("Sync Data Response:", data);
             addLog(`Sync complete! Found ${data.transactions?.length || 0} transactions.`);
 
+            if (data._meta?.persisted) {
+                addLog("✓ Transactions saved to database!");
+            }
+
             // Log debug info if available (shows API errors per account)
             if (data._meta?.debug) {
                 data._meta.debug.forEach((d: any) => {
-                    addLog(`  → Account ${d.account}: ${d.count || 0} tx, status: ${d.status}, error: ${d.error || 'none'}`);
+                    const accName = accountsList.find(a => a.uid === d.account)?.name || 'Unknown';
+                    addLog(`  → ${accName} (${d.account}): ${d.count || 0} tx, status: ${d.status}, error: ${d.error || 'none'}`);
                 });
             }
 
@@ -277,9 +488,57 @@ export const EnableBankingSandbox: React.FC = () => {
             if (syncedAccount) setAccount(syncedAccount as any);
             if (data.transactions) setTransactions(data.transactions);
 
+            // Refresh account list to update last_synced_at timestamps
+            restoreSession();
+
+
         } catch (e: any) {
             console.error("Sync failed:", e);
             addLog(`Sync Error: ${e.message}`);
+        }
+    };
+
+    // Sync ALL accounts in accountsList
+    const handleSyncAll = async () => {
+        if (status !== 'connected' || accountsList.length === 0) {
+            addLog("No accounts to sync.");
+            return;
+        }
+
+        addLog(`Syncing ALL ${accountsList.length} account(s)...`);
+        let totalTransactions = 0;
+
+        try {
+            const currentAssociationId = await associationService.getCurrentAssociationId();
+
+            for (const acc of accountsList) {
+                addLog(`  → Syncing ${acc.name}...`);
+
+                const { data, error } = await supabase.functions.invoke('enable-banking', {
+                    body: {
+                        action: 'sync_transactions',
+                        account_uid: acc.uid,
+                        // date_from: Omitted to allow backend to determine "Smart Sync" start date based on last_synced_at
+                        date_to: dateTo,
+                        association_id: currentAssociationId
+                    }
+                });
+
+                if (error) {
+                    addLog(`    ✗ Error: ${error.message}`);
+                } else if (data?.transactions) {
+                    totalTransactions += data.transactions.length;
+                    addLog(`    ✓ ${data.transactions.length} transactions`);
+                }
+            }
+
+            addLog(`Sync All complete! Total: ${totalTransactions} transactions.`);
+
+            // Refresh account list to update last_synced_at timestamps
+            restoreSession();
+        } catch (e: any) {
+            console.error("Sync All failed:", e);
+            addLog(`Sync All Error: ${e.message}`);
         }
     };
 
@@ -316,26 +575,39 @@ export const EnableBankingSandbox: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    {/* Bank Selection Dropdown */}
+                                    {/* Bank Selection */}
                                     <div className="space-y-2">
                                         <Text className="text-sm font-medium text-slate-blue">Selecteer Bank:</Text>
                                         {loadingBanks ? (
                                             <div className="text-sm text-gray-500 italic">Banken laden...</div>
                                         ) : (
-                                            <Select
-                                                value={selectedBank}
-                                                onValueChange={(value) => setSelectedBank(value)}
-                                                placeholder="Kies een bank..."
-                                            >
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1">
                                                 {availableBanks.map((bank, idx) => (
-                                                    <SelectItem
+                                                    <div
                                                         key={idx}
-                                                        value={`${bank.name}|${bank.country}`}
+                                                        onClick={() => setSelectedBank(`${bank.name}|${bank.country}`)}
+                                                        className={`
+                                                            cursor-pointer p-3 rounded-lg border transition-all duration-200 flex items-center space-x-3
+                                                            ${selectedBank === `${bank.name}|${bank.country}`
+                                                                ? 'border-slate-blue bg-slate-50 shadow-sm ring-1 ring-slate-blue'
+                                                                : 'border-slate-200 hover:border-slate-300 hover:bg-gray-50'
+                                                            }
+                                                        `}
                                                     >
-                                                        {bank.name} ({bank.country})
-                                                    </SelectItem>
+                                                        {bank.logo ? (
+                                                            <img src={bank.logo} alt={bank.name} className="w-8 h-8 object-contain" />
+                                                        ) : (
+                                                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">
+                                                                {bank.country}
+                                                            </div>
+                                                        )}
+                                                        <div className="flex-1 min-w-0">
+                                                            <Text className="font-medium text-slate-blue truncate">{bank.name}</Text>
+                                                            <Text className="text-xs text-gray-500">{bank.country}</Text>
+                                                        </div>
+                                                    </div>
                                                 ))}
-                                            </Select>
+                                            </div>
                                         )}
                                     </div>
 
@@ -351,69 +623,112 @@ export const EnableBankingSandbox: React.FC = () => {
 
                                     {/* After connection: Account Selection */}
                                     {status === 'connected' && accountsList.length > 0 && (
-                                        <div className="mt-4 space-y-4">
-                                            <div className="p-4 bg-green-50 text-green-800 rounded-lg text-sm">
-                                                <Text className="font-bold">✓ Verbonden!</Text>
-                                                <Text>Selecteer hieronder het account om te synchroniseren:</Text>
+                                        <div className="mt-8 space-y-6 animate-fade-in border-t border-slate-100 pt-6">
+                                            <div className="flex items-center space-x-2 text-green-700 bg-green-50 p-3 rounded-lg">
+                                                <Badge color="green" size="xs">✓</Badge>
+                                                <Text className="font-medium text-sm">Verbonden met {accountsList.length} rekening(en)</Text>
                                             </div>
 
-                                            <div className="space-y-2">
-                                                <Text className="text-sm font-medium text-slate-blue">Selecteer Account:</Text>
-                                                <Select
-                                                    value={selectedAccountUid}
-                                                    onValueChange={(value) => setSelectedAccountUid(value)}
-                                                    placeholder="Kies een account..."
-                                                >
-                                                    {accountsList.map((acc, idx) => (
-                                                        <SelectItem key={idx} value={acc.uid}>
-                                                            {acc.name} {acc.iban ? `(${acc.iban})` : ''} - {acc.currency || 'EUR'}
-                                                        </SelectItem>
-                                                    ))}
-                                                </Select>
+                                            <div className="space-y-3">
+                                                <Text className="text-sm font-medium text-slate-blue">Selecteer Account om te beheren:</Text>
+                                                <div className="grid grid-cols-1 gap-3">
+                                                    {accountsList.map((acc, idx) => {
+                                                        const isSelected = selectedAccountUid === acc.uid;
+                                                        return (
+                                                            <div
+                                                                key={idx}
+                                                                onClick={() => setSelectedAccountUid(acc.uid)}
+                                                                className={`
+                                                                    cursor-pointer p-4 rounded-xl border transition-all duration-200 text-left group
+                                                                    ${isSelected
+                                                                        ? 'border-slate-blue bg-blue-50/50 ring-1 ring-slate-blue shadow-md'
+                                                                        : 'border-slate-200 hover:border-slate-400 hover:shadow-sm bg-white'
+                                                                    }
+                                                                `}
+                                                            >
+                                                                <div className="flex justify-between items-start">
+                                                                    <div>
+                                                                        <Text className={`font-bold ${isSelected ? 'text-slate-blue' : 'text-gray-700'}`}>
+                                                                            {acc.name}
+                                                                        </Text>
+                                                                        <Text className="font-mono text-xs text-slate-500 mt-1">
+                                                                            {acc.iban || 'Geen IBAN'} • {acc.currency || 'EUR'}
+                                                                        </Text>
+                                                                    </div>
+                                                                    {isSelected && (
+                                                                        <Badge size="xs" color="blue">Geselecteerd</Badge>
+                                                                    )}
+                                                                </div>
+                                                                <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
+                                                                    <Text className="text-xs text-gray-500">
+                                                                        Laatst gesynchroniseerd:
+                                                                    </Text>
+                                                                    <Text className="text-xs font-medium text-slate-700">
+                                                                        {acc.last_synced_at
+                                                                            ? new Date(acc.last_synced_at).toLocaleString('nl-NL')
+                                                                            : 'Nog nooit'
+                                                                        }
+                                                                    </Text>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
 
                                             {/* Date Range Selection */}
-                                            <div className="grid grid-cols-2 gap-4">
+                                            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-xl">
                                                 <div className="space-y-1">
-                                                    <Text className="text-sm font-medium text-slate-blue">Van:</Text>
+                                                    <Text className="text-xs font-medium text-gray-500 uppercase tracking-wider">Van</Text>
                                                     <input
                                                         type="date"
                                                         value={dateFrom}
                                                         onChange={(e) => setDateFrom(e.target.value)}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-slate-blue focus:border-transparent outline-none"
                                                     />
                                                 </div>
                                                 <div className="space-y-1">
-                                                    <Text className="text-sm font-medium text-slate-blue">Tot:</Text>
+                                                    <Text className="text-xs font-medium text-gray-500 uppercase tracking-wider">Tot</Text>
                                                     <input
                                                         type="date"
                                                         value={dateTo}
                                                         onChange={(e) => setDateTo(e.target.value)}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-slate-blue focus:border-transparent outline-none"
                                                     />
                                                 </div>
                                             </div>
 
-                                            <Button
-                                                onClick={handleSync}
-                                                color="emerald"
-                                                className="w-full"
-                                                disabled={!selectedAccountUid}
-                                            >
-                                                Synchroniseer Transacties
-                                            </Button>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <Button
+                                                    onClick={handleSync}
+                                                    color="emerald"
+                                                    variant="primary"
+                                                    disabled={!selectedAccountUid}
+                                                    className="shadow-sm"
+                                                >
+                                                    Sync Geselecteerd
+                                                </Button>
+                                                <Button
+                                                    onClick={handleSyncAll}
+                                                    color="blue"
+                                                    variant="secondary"
+                                                    disabled={accountsList.length === 0}
+                                                >
+                                                    Sync Alle ({accountsList.length})
+                                                </Button>
+                                            </div>
                                         </div>
                                     )}
 
                                     {/* Show synced account info */}
                                     {status === 'connected' && account && transactions.length > 0 && (
-                                        <div className="mt-4 p-4 bg-blue-50 text-blue-800 rounded-lg text-sm">
-                                            <Text className="font-bold">Gesynchroniseerd Account:</Text>
-                                            <Text>{account.name} ({account.currency})</Text>
-                                            <Text className="font-mono text-xs mt-1">{account.bicFi}</Text>
-                                            <Text className="text-xs text-gray-500 mt-2">
-                                                {transactions.length} transacties geladen
-                                            </Text>
+                                        <div className="mt-4 p-4 bg-white border border-slate-200 rounded-lg text-sm shadow-sm">
+                                            <Text className="font-bold text-slate-blue">Huidige Weergave:</Text>
+                                            <Text className="text-gray-700">{account.name} ({account.currency})</Text>
+                                            <Text className="font-mono text-xs text-gray-500 mt-1">{account.bicFi}</Text>
+                                            <div className="flex items-center gap-2 mt-2">
+                                                <Badge size="xs" color="indigo">{transactions.length} transacties</Badge>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -442,15 +757,31 @@ export const EnableBankingSandbox: React.FC = () => {
                                         <Title className="font-heading text-slate-blue">Transacties</Title>
                                         <Text>Recent opgehaald van bank</Text>
                                     </div>
-                                    <Button
-                                        icon={ArrowPathIcon}
-                                        variant="secondary"
-                                        color="slate"
-                                        onClick={handleSync}
-                                        loading={false} // Could add loading state
-                                    >
-                                        Verversen
-                                    </Button>
+                                    <div className="flex items-center gap-3">
+                                        {accountsList.length > 0 && (
+                                            <Select
+                                                value={selectedAccountUid}
+                                                onValueChange={(value) => setSelectedAccountUid(value)}
+                                                placeholder="Selecteer account..."
+                                                className="min-w-[200px]"
+                                            >
+                                                {accountsList.map((acc, idx) => (
+                                                    <SelectItem key={idx} value={acc.uid}>
+                                                        {acc.name} - {acc.currency || 'EUR'}
+                                                    </SelectItem>
+                                                ))}
+                                            </Select>
+                                        )}
+                                        <Button
+                                            icon={ArrowPathIcon}
+                                            variant="secondary"
+                                            color="slate"
+                                            onClick={handleSync}
+                                            disabled={!selectedAccountUid}
+                                        >
+                                            Verversen
+                                        </Button>
+                                    </div>
                                 </div>
 
                                 <Table className="mt-4">
@@ -485,7 +816,7 @@ export const EnableBankingSandbox: React.FC = () => {
                                                     : description || '-';
 
                                                 return (
-                                                    <TableRow key={tx.entry_reference || tx.entryReference || idx}>
+                                                    <TableRow key={`${tx.entry_reference || tx.entryReference || 'no-ref'}-${idx}`}>
                                                         <TableCell>{bookingDate}</TableCell>
                                                         <TableCell>
                                                             <Text className="font-medium text-slate-blue">

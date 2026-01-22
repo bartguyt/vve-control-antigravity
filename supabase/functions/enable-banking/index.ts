@@ -22,7 +22,7 @@ serve(async (req) => {
     try {
         // Parse body ONCE and extract all possible fields
         const body = await req.json();
-        const { action, code, session_id, country, aspsp_name, aspsp_country, account_uid, date_from, date_to } = body;
+        const { action, code, session_id, country, aspsp_name, aspsp_country, account_uid, date_from, date_to, association_id } = body;
 
         const alg = 'RS256';
         const pk = await jose.importPKCS8(PRIVATE_KEY, alg);
@@ -177,14 +177,18 @@ serve(async (req) => {
 
             // 4. Return the accounts list for selection in UI
             // Map accounts to friendly format with name, uid, etc.
+            console.log("Raw accounts from API:", JSON.stringify(accounts, null, 2));
+
             const accountsForUI = accounts.map((acc: any) => ({
                 uid: acc.uid || acc,
-                name: acc.name || acc.account_id?.iban || 'Account',
+                name: acc.name || acc.account_id?.iban || acc.product || 'Account',
                 iban: acc.account_id?.iban || null,
                 currency: acc.currency || 'EUR',
                 bicFi: acc.bic_fi || null,
                 cashAccountType: acc.cash_account_type || null
             }));
+
+            console.log("Mapped accounts for UI:", JSON.stringify(accountsForUI, null, 2));
 
             return new Response(JSON.stringify({
                 session_id: activeSessionId,
@@ -196,6 +200,7 @@ serve(async (req) => {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
         }
+
         else if (action === 'sync_transactions') {
             // 1. Get Active Connection from DB
             const { data: connection, error } = await supabase
@@ -240,21 +245,11 @@ serve(async (req) => {
             }
 
             const sessionData = await sessionResp.json();
-            console.log("Session response:", JSON.stringify(sessionData).slice(0, 500));
-
             const accounts = sessionData.accounts || [];
             let allTransactions: any[] = [];
             let debugInfo: any[] = [];
 
-            console.log(`Found ${accounts.length} accounts in session`);
-
-            // Use passed date range or defaults
-            const syncDateFrom = date_from || '2024-01-01';
-            const syncDateTo = date_to || new Date().toISOString().split('T')[0];
-
-            console.log(`Date range: ${syncDateFrom} to ${syncDateTo}`);
-
-            // 4. Fetch Transactions for SPECIFIC account (or all if no account_uid provided)
+            // 4. Determine Accounts to Sync
             const accountsToSync = account_uid
                 ? accounts.filter((a: any) => (a.uid || a) === account_uid)
                 : accounts;
@@ -265,36 +260,151 @@ serve(async (req) => {
 
             console.log(`Syncing ${accountsToSync.length} account(s)`);
 
+            // 5. Sync Loop
             for (const acc of accountsToSync) {
                 const accUid = acc.uid || acc;
-                // Correct endpoint per Enable Banking docs: /accounts/{account_uid}/transactions
-                const txUrl = `${API_URL}/accounts/${accUid}/transactions?date_from=${syncDateFrom}&date_to=${syncDateTo}`;
+                const accName = acc.name || acc.account_id?.iban || 'Unknown Account';
 
-                console.log(`Fetching transactions from: ${txUrl}`);
+                // Determine Date Range PER ACCOUNT
+                let syncDateFrom = date_from; // Use request param if provided
 
-                const txResp = await fetch(txUrl, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${jwt}`
+                if (!syncDateFrom) {
+                    // Fetch last_synced_at from DB if not provided
+                    const { data: acctInfo } = await supabase
+                        .from('bank_accounts')
+                        .select('last_synced_at')
+                        .eq('association_id', association_id)
+                        .eq('external_account_uid', accUid)
+                        .maybeSingle();
+
+                    if (acctInfo?.last_synced_at) {
+                        syncDateFrom = new Date(acctInfo.last_synced_at).toISOString();
+                        console.log(`[${accUid}] Using stored last_synced_at: ${syncDateFrom}`);
+                    } else {
+                        // Default to a far past date if never synced
+                        syncDateFrom = '2020-01-01';
+                        console.log(`[${accUid}] No last_synced_at, fetching from start: ${syncDateFrom}`);
                     }
-                });
+                }
 
-                const rawText = await txResp.text();
-                console.log(`TX Response for ${accUid} (${txResp.status}): ${rawText.slice(0, 300)}`);
+                const syncDateTo = date_to || new Date().toISOString();
 
-                if (txResp.ok || txResp.status === 200) {
-                    try {
-                        const txData = JSON.parse(rawText);
-                        const txList = txData.transactions || txData.booked || [];
-                        console.log(`Got ${txList.length} transactions for account ${accUid}`);
-                        allTransactions.push(...txList);
-                        debugInfo.push({ account: accUid, status: txResp.status, count: txList.length });
-                    } catch (e) {
-                        debugInfo.push({ account: accUid, status: txResp.status, error: "JSON parse failed" });
+                // Fetch ALL transactions using pagination
+                let continuationKey: string | null = null;
+                let allAccountTransactions: any[] = [];
+                let pageCount = 0;
+                const maxPages = 50; // Safety limit
+
+                do {
+                    pageCount++;
+                    let txUrl = `${API_URL}/accounts/${accUid}/transactions?date_from=${syncDateFrom}&date_to=${syncDateTo}`;
+                    if (continuationKey) {
+                        txUrl += `&continuation_key=${encodeURIComponent(continuationKey)}`;
                     }
-                } else {
-                    debugInfo.push({ account: accUid, status: txResp.status, error: rawText.slice(0, 100) });
+
+                    console.log(`[${accUid}] Fetching page ${pageCount}`);
+
+                    const txResp = await fetch(txUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${jwt}`
+                        }
+                    });
+
+                    if (!txResp.ok) {
+                        const rawText = await txResp.text();
+                        console.error(`[${accUid}] Error fetching page ${pageCount}: ${rawText}`);
+                        break;
+                    }
+
+                    const rawText = await txResp.text();
+                    const txData = JSON.parse(rawText);
+                    const txList = txData.transactions || txData.booked || [];
+
+                    console.log(`[${accUid}] Got ${txList.length} transactions on page ${pageCount}`);
+                    allAccountTransactions.push(...txList);
+
+                    continuationKey = txData.continuation_key || null;
+                } while (continuationKey && pageCount < maxPages);
+
+                console.log(`Total: ${allAccountTransactions.length} transactions for account ${accUid}`);
+                allTransactions.push(...allAccountTransactions);
+                debugInfo.push({ account: accUid, status: 200, count: allAccountTransactions.length, pages: pageCount });
+
+                // PERSIST TO DATABASE
+                if (association_id && allAccountTransactions.length > 0) {
+                    // 1. Upsert bank_account
+                    const { data: bankAccount, error: baError } = await supabase
+                        .from('bank_accounts')
+                        .upsert({
+                            association_id,
+                            external_account_uid: accUid,
+                            name: accName,
+                            iban: acc.account_id?.iban || null,
+                            bic: acc.bic_fi || null,
+                            currency: acc.currency || 'EUR',
+                            connection_id: connection.id,
+                            last_synced_at: new Date().toISOString() // CORRECTED COLUMN NAME
+                        }, { onConflict: 'association_id,external_account_uid' })
+                        .select('id')
+                        .single();
+
+                    if (baError) {
+                        console.error('Failed to upsert bank_account:', baError);
+                    } else if (bankAccount) {
+                        // 2. Upsert transactions
+                        const txInserts = allAccountTransactions.map((tx: any) => ({
+                            bank_account_id: bankAccount.id,
+                            external_reference: tx.entry_reference || `${tx.booking_date}-${tx.transaction_amount?.amount}`,
+                            booking_date: tx.booking_date,
+                            value_date: tx.value_date || null,
+                            amount: parseFloat(tx.transaction_amount?.amount || '0'),
+                            currency: tx.transaction_amount?.currency || 'EUR',
+                            credit_debit: tx.credit_debit_indicator || null,
+                            counterparty_name: tx.creditor?.name || tx.debtor?.name || null,
+                            counterparty_iban: tx.creditor_account?.iban || tx.debtor_account?.iban || null,
+                            description: Array.isArray(tx.remittance_information)
+                                ? tx.remittance_information.join(' ')
+                                : tx.remittance_information || null,
+                            status: tx.status || 'BOOK',
+                            raw_data: tx
+                        }));
+
+                        const { error: txError } = await supabase
+                            .from('bank_transactions')
+                            .upsert(txInserts, { onConflict: 'bank_account_id,external_reference' });
+
+                        if (txError) {
+                            console.error('Failed to upsert transactions:', txError);
+                            debugInfo.push({ account: accUid, db_error: txError.message });
+                        } else {
+                            console.log(`Persisted ${txInserts.length} transactions to database`);
+                            debugInfo.push({ account: accUid, persisted: txInserts.length });
+                        }
+                    }
+                } else if (association_id) {
+                    // Even if 0 transactions, update the timestamp so we don't fetch old history again
+                    await supabase
+                        .from('bank_accounts')
+                        .upsert({
+                            association_id,
+                            external_account_uid: accUid,
+                            name: accName,
+                            // other fields... ideally we just patch, but upsert needs keys.
+                            // If it exists, detailed upsert above is better.
+                            // Simplified update just for timestamp if we have no new txs?
+                            // Actually, let's just do the same upsert to ensure timestamp update even if 0 items found.
+                            // But we need consistent fields.
+                            // Let's copy the upsert object from above.
+                            external_account_uid: accUid,
+                            name: accName,
+                            iban: acc.account_id?.iban || null,
+                            bic: acc.bic_fi || null,
+                            currency: acc.currency || 'EUR',
+                            connection_id: connection.id,
+                            last_synced_at: new Date().toISOString()
+                        }, { onConflict: 'association_id,external_account_uid' });
                 }
             }
 
@@ -306,8 +416,8 @@ serve(async (req) => {
                     synced_at: new Date().toISOString(),
                     accounts_count: accounts.length,
                     transactions_count: allTransactions.length,
-                    debug: debugInfo,
-                    date_range: { from: syncDateFrom, to: syncDateTo }
+                    persisted: association_id ? true : false,
+                    debug: debugInfo
                 }
             }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
