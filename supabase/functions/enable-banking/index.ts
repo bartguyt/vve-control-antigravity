@@ -6,7 +6,7 @@ import { PRIVATE_KEY } from './priv_key.ts';
 const APP_ID = 'a34e3b69-cc7f-4eee-be2d-1fc438d020c9';
 const KEY_ID = APP_ID; // Enable Banking uses APP_ID as KEY_ID
 
-const REDIRECT_URI = 'http://localhost:5174/finance/enable-banking-dev';
+const REDIRECT_URI = 'http://localhost:5174/system/connections/bank';
 const API_URL = 'https://api.enablebanking.com';
 
 const corsHeaders = {
