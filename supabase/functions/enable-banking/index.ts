@@ -51,8 +51,8 @@ serve(async (req) => {
                 .setExpirationTime('1h')
                 .sign(pk);
 
-            // Fetch sandbox ASPSPs (country=XX for sandbox, or specific country)
-            const url = `${API_URL}/aspsps?country=${country || 'XX'}`;
+            // Fetch sandbox ASPSPs (country=XS for sandbox, or specific country)
+            const url = `${API_URL}/aspsps?country=${country || 'XS'}`;
             console.log("Fetching ASPSPs from:", url);
 
             const response = await fetch(url, {
