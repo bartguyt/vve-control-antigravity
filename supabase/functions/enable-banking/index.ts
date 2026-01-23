@@ -108,31 +108,52 @@ serve(async (req) => {
                 .setExpirationTime('1h')
                 .sign(pk);
 
+            const authRequestBody = {
+                "access": {
+                    "valid_until": new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
+                },
+                "aspsp": {
+                    "name": bankName,
+                    "country": bankCountry
+                },
+                "state": "test-state-123",
+                "redirect_url": REDIRECT_URI
+            };
+
+            console.log("DEBUG: Auth request body:", JSON.stringify(authRequestBody));
+
             const response = await fetch(`${API_URL}/auth`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${jwt}`
                 },
-                body: JSON.stringify({
-                    "access": {
-                        "valid_until": new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
-                    },
-                    "aspsp": {
-                        "name": bankName,
-                        "country": bankCountry
-                    },
-                    "state": "test-state-123",
-                    "redirect_url": REDIRECT_URI
-                })
+                body: JSON.stringify(authRequestBody)
             });
 
             const data = await response.json();
+            console.log("DEBUG: Enable Banking auth response status:", response.status);
+            console.log("DEBUG: Enable Banking auth response data:", JSON.stringify(data));
 
             if (!response.ok) {
-                throw new Error(`Enable Banking API error: ${JSON.stringify(data)}`);
+                const errorResponse = {
+                    error: `Enable Banking auth error: ${JSON.stringify(data)}`,
+                    debug: {
+                        app_id: APP_ID,
+                        bank_name: bankName,
+                        bank_country: bankCountry,
+                        redirect_uri: REDIRECT_URI,
+                        status: response.status
+                    }
+                };
+                console.error("Enable Banking Auth Error:", errorResponse);
+                return new Response(JSON.stringify(errorResponse), {
+                    status: response.status,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                });
             }
 
+            console.log("DEBUG: Returning successful auth response");
             return new Response(JSON.stringify(data), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });

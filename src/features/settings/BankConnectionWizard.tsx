@@ -197,20 +197,47 @@ export const BankConnectionWizard: React.FC<Props> = ({ onComplete }) => {
         try {
             const associationId = await associationService.getCurrentAssociationId();
 
+            const requestBody = {
+                action: 'init_auth',
+                aspsp_name: name,
+                aspsp_country: country,
+                association_id: associationId
+            };
+
+            addLog(`📤 Init Auth Request: ${JSON.stringify(requestBody)}`);
+
             const { data, error } = await supabase.functions.invoke('enable-banking', {
-                body: {
-                    action: 'init_auth',
-                    aspsp_name: name,
-                    aspsp_country: country,
-                    association_id: associationId
-                }
+                body: requestBody
             });
 
-            if (error) throw error;
-            if (data?.error) throw new Error(data.error);
+            addLog(`📥 Init Auth Response: ${JSON.stringify(data)}`);
+
+            if (error) {
+                addLog(`❌ Supabase Error: ${JSON.stringify(error)}`);
+                throw error;
+            }
+
+            if (data?.error) {
+                addLog(`❌ Edge Function Error: ${data.error}`);
+                if (data.debug) {
+                    addLog(`📋 Debug Info: ${JSON.stringify(data.debug)}`);
+                }
+                throw new Error(data.error);
+            }
 
             const { auth_url, session_id } = data;
-            addLog(`✅ Auth URL received`);
+
+            if (!auth_url) {
+                addLog(`❌ No auth_url in response!`);
+                throw new Error('No auth_url received from Enable Banking');
+            }
+
+            if (!session_id) {
+                addLog(`❌ No session_id in response!`);
+                throw new Error('No session_id received from Enable Banking');
+            }
+
+            addLog(`✅ Auth URL received: ${auth_url.substring(0, 50)}...`);
             addLog(`📋 Session ID: ${session_id}`);
 
             // Store session ID
@@ -218,10 +245,13 @@ export const BankConnectionWizard: React.FC<Props> = ({ onComplete }) => {
 
             // Redirect to Enable Banking
             addLog(`🔀 Redirecting to Enable Banking...`);
-            window.location.href = auth_url;
+            setTimeout(() => {
+                window.location.href = auth_url;
+            }, 100); // Small delay to ensure log is visible
         } catch (err: any) {
-            console.error(err);
+            console.error('handleStartAuth error:', err);
             addLog(`❌ Error: ${err.message}`);
+            addLog(`📋 Full error: ${JSON.stringify(err)}`);
             setAuthenticating(false);
         }
     };
