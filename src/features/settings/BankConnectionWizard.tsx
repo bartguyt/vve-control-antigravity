@@ -153,6 +153,8 @@ export const BankConnectionWizard: React.FC<Props> = ({ onComplete }) => {
 
             const associationId = await associationService.getCurrentAssociationId();
 
+            addLog(`📤 Activate Session Request: code=${code.substring(0, 20)}..., session_id=${storedSessionId}`);
+
             const { data, error } = await supabase.functions.invoke('enable-banking', {
                 body: {
                     action: 'activate_session',
@@ -162,8 +164,17 @@ export const BankConnectionWizard: React.FC<Props> = ({ onComplete }) => {
                 }
             });
 
-            if (error) throw error;
-            if (data?.error) throw new Error(data.error);
+            addLog(`📥 Activate Session Response: ${JSON.stringify(data)?.substring(0, 500)}...`);
+
+            if (error) {
+                addLog(`❌ Supabase Error: ${JSON.stringify(error)}`);
+                throw error;
+            }
+
+            if (data?.error) {
+                addLog(`❌ Error from Edge Function: ${data.error}`);
+                throw new Error(data.error);
+            }
 
             const accounts = data.accounts || [];
             addLog(`✅ Session activated! Found ${accounts.length} accounts`);
@@ -225,29 +236,32 @@ export const BankConnectionWizard: React.FC<Props> = ({ onComplete }) => {
                 throw new Error(data.error);
             }
 
-            const { auth_url, session_id } = data;
+            // Enable Banking returns 'url' and 'authorization_id', not 'auth_url' and 'session_id'
+            const { url: auth_url, authorization_id: session_id } = data;
 
             if (!auth_url) {
-                addLog(`❌ No auth_url in response!`);
-                throw new Error('No auth_url received from Enable Banking');
+                addLog(`❌ No url in response!`);
+                addLog(`📋 Available fields: ${Object.keys(data).join(', ')}`);
+                throw new Error('No url received from Enable Banking');
             }
 
             if (!session_id) {
-                addLog(`❌ No session_id in response!`);
-                throw new Error('No session_id received from Enable Banking');
+                addLog(`❌ No authorization_id in response!`);
+                addLog(`📋 Available fields: ${Object.keys(data).join(', ')}`);
+                throw new Error('No authorization_id received from Enable Banking');
             }
 
-            addLog(`✅ Auth URL received: ${auth_url.substring(0, 50)}...`);
-            addLog(`📋 Session ID: ${session_id}`);
+            addLog(`✅ Auth URL received: ${auth_url.substring(0, 80)}...`);
+            addLog(`📋 Authorization ID: ${session_id}`);
 
-            // Store session ID
+            // Store authorization ID (used as session_id in our flow)
             sessionStorage.setItem('eb_session_id', session_id);
 
             // Redirect to Enable Banking
-            addLog(`🔀 Redirecting to Enable Banking...`);
+            addLog(`🔀 Redirecting to Enable Banking in 500ms...`);
             setTimeout(() => {
                 window.location.href = auth_url;
-            }, 100); // Small delay to ensure log is visible
+            }, 500); // Small delay to ensure log is visible
         } catch (err: any) {
             console.error('handleStartAuth error:', err);
             addLog(`❌ Error: ${err.message}`);
