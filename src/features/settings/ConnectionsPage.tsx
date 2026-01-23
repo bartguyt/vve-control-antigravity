@@ -79,7 +79,9 @@ export const ConnectionsPage: React.FC = () => {
             if (error) throw error;
             if (data?.error) throw new Error(data.error);
 
-            alert(`✅ Rekening gesynchroniseerd! ${data.transaction_count} transacties verwerkt.`);
+            // Edge Function returns transactions_count in _meta
+            const transactionCount = data._meta?.transactions_count || data.transactions?.length || 0;
+            alert(`✅ Rekening gesynchroniseerd! ${transactionCount} transacties verwerkt.`);
             await loadConnectedAccounts();
         } catch (err: any) {
             console.error(err);

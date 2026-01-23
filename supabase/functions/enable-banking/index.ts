@@ -229,7 +229,12 @@ serve(async (req) => {
 
             const accountsForUI = accounts.map((acc: any) => ({
                 uid: acc.uid || acc,
-                name: acc.name || acc.account_id?.iban || acc.product || 'Account',
+                name: acc.name
+                    || acc.display_name
+                    || acc.account_name
+                    || (acc.account_id?.iban ? `Account ${acc.account_id.iban.slice(-4)}` : null)
+                    || acc.product
+                    || `Mock Account ${(acc.uid || acc).toString().slice(0, 8)}`,
                 iban: acc.account_id?.iban || null,
                 currency: acc.currency || 'EUR',
                 bicFi: acc.bic_fi || null,
@@ -317,7 +322,19 @@ serve(async (req) => {
             // 5. Sync Loop
             for (const acc of accountsToSync) {
                 const accUid = acc.uid || acc;
-                const accName = acc.name || acc.account_id?.iban || 'Unknown Account';
+
+                // Debug: Log account object to see available fields
+                console.log(`Account data for ${accUid}:`, JSON.stringify(acc, null, 2));
+
+                // Try multiple fallbacks for account name
+                const accName = acc.name
+                    || acc.display_name
+                    || acc.account_name
+                    || (acc.account_id?.iban ? `Account ${acc.account_id.iban.slice(-4)}` : null)
+                    || acc.product
+                    || `Mock Account ${accUid.slice(0, 8)}`;
+
+                console.log(`Using account name: "${accName}" for ${accUid}`);
 
                 // Determine Date Range PER ACCOUNT
                 let syncDateFrom = date_from; // Use request param if provided
