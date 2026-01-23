@@ -23,6 +23,16 @@ export const ConnectionsPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
+        // Check if we're returning from OAuth (code parameter in URL)
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+
+        if (code) {
+            // OAuth callback detected - show wizard to handle it
+            console.log('OAuth callback detected, showing wizard');
+            setShowWizard(true);
+        }
+
         loadConnectedAccounts();
     }, []);
 

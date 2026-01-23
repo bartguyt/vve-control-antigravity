@@ -41,7 +41,7 @@ serve(async (req) => {
             // Debug: Log credentials being used
             console.log("DEBUG: APP_ID =", APP_ID);
             console.log("DEBUG: KEY_ID =", KEY_ID);
-            console.log("DEBUG: Country =", country || 'XS (default)');
+            console.log("DEBUG: Country =", country || 'NL (default)');
 
             const jwt = await new jose.SignJWT({
                 "iss": APP_ID,
@@ -52,8 +52,8 @@ serve(async (req) => {
                 .setExpirationTime('1h')
                 .sign(pk);
 
-            // Fetch sandbox ASPSPs (country=XS for sandbox, or specific country)
-            const url = `${API_URL}/aspsps?country=${country || 'XS'}`;
+            // Fetch sandbox ASPSPs (country=NL includes Mock ASPSP for testing)
+            const url = `${API_URL}/aspsps?country=${country || 'NL'}`;
             console.log("Fetching ASPSPs from:", url);
 
             const response = await fetch(url, {

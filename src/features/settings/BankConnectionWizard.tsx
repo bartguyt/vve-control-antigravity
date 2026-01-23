@@ -30,7 +30,7 @@ export const BankConnectionWizard: React.FC<Props> = ({ onComplete }) => {
     const [availableBanks, setAvailableBanks] = useState<BankOption[]>([]);
     const [selectedBank, setSelectedBank] = useState<string>(''); // 'country:name' format
     const [loadingBanks, setLoadingBanks] = useState(false);
-    const [debugCountryCode, setDebugCountryCode] = useState<string>('XS'); // Debug: allow changing country code
+    const [debugCountryCode, setDebugCountryCode] = useState<string>('NL'); // Debug: allow changing country code
 
     // Step 2: Authentication (redirect happens)
     const [authenticating, setAuthenticating] = useState(false);
@@ -42,10 +42,20 @@ export const BankConnectionWizard: React.FC<Props> = ({ onComplete }) => {
 
     const addLog = (msg: string) => setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
 
-    // Load banks on mount
+    // Load banks on mount and check for OAuth callback
     useEffect(() => {
-        fetchAvailableBanks();
-        handleOAuthCallback();
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+
+        if (code) {
+            // OAuth callback detected - skip to handling it
+            addLog('🔐 OAuth callback detected on mount');
+            setCurrentStep(2); // Set to step 2 (authenticating) temporarily
+            handleOAuthCallback();
+        } else {
+            // Normal flow - load banks
+            fetchAvailableBanks();
+        }
     }, []);
 
     const fetchAvailableBanks = async (countryCode?: string) => {
@@ -99,8 +109,8 @@ export const BankConnectionWizard: React.FC<Props> = ({ onComplete }) => {
 
             setAvailableBanks(banks);
 
-            // Auto-select Mock bank if available
-            const mockBank = banks.find(b => b.country === 'XS');
+            // Auto-select Mock bank if available (search by name containing "Mock")
+            const mockBank = banks.find(b => b.name.toLowerCase().includes('mock'));
             if (mockBank) {
                 setSelectedBank(`${mockBank.country}:${mockBank.name}`);
                 addLog(`ℹ️ Mock bank auto-selected: ${mockBank.name}`);
@@ -477,8 +487,8 @@ export const BankConnectionWizard: React.FC<Props> = ({ onComplete }) => {
                             }}
                             className="w-32"
                         >
-                            <SelectItem value="XS">XS (Mock)</SelectItem>
-                            <SelectItem value="NL">NL (Dutch)</SelectItem>
+                            <SelectItem value="NL">NL (Dutch + Mock)</SelectItem>
+                            <SelectItem value="XS">XS (Mock Only)</SelectItem>
                             <SelectItem value="BE">BE (Belgian)</SelectItem>
                             <SelectItem value="DE">DE (German)</SelectItem>
                             <SelectItem value="GB">GB (UK)</SelectItem>
@@ -493,7 +503,7 @@ export const BankConnectionWizard: React.FC<Props> = ({ onComplete }) => {
                         </Button>
                     </div>
                     <Text className="text-xs text-gray-500 mt-2">
-                        <strong>XS</strong> = Mock banks (test data) • <strong>NL/BE/DE/GB</strong> = Real bank sandboxes
+                        <strong>NL</strong> = Dutch banks + Mock ASPSP (recommended) • <strong>BE/DE/GB</strong> = Other country sandboxes
                     </Text>
                 </div>
 
