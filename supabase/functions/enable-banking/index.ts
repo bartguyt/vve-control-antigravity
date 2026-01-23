@@ -22,7 +22,7 @@ serve(async (req) => {
     try {
         // Parse body ONCE and extract all possible fields
         const body = await req.json();
-        const { action, code, session_id, country, aspsp_name, aspsp_country, account_uid, date_from, date_to, association_id } = body;
+        const { action, code, session_id, country, aspsp_name, aspsp_country, account_uid, account_name, date_from, date_to, association_id } = body;
 
         const alg = 'RS256';
         const pk = await jose.importPKCS8(PRIVATE_KEY, alg);
@@ -327,14 +327,16 @@ serve(async (req) => {
                 console.log(`Account data for ${accUid}:`, JSON.stringify(acc, null, 2));
 
                 // Try multiple fallbacks for account name
-                const accName = acc.name
+                // PRIORITY: Use account_name from request (passed from wizard step 3) if available
+                const accName = account_name // From request parameter (wizard has this!)
+                    || acc.name
                     || acc.display_name
                     || acc.account_name
                     || (acc.account_id?.iban ? `Account ${acc.account_id.iban.slice(-4)}` : null)
                     || acc.product
                     || `Mock Account ${accUid.slice(0, 8)}`;
 
-                console.log(`Using account name: "${accName}" for ${accUid}`);
+                console.log(`Using account name: "${accName}" for ${accUid} (from request: ${account_name || 'not provided'})`);
 
                 // Determine Date Range PER ACCOUNT
                 let syncDateFrom = date_from; // Use request param if provided

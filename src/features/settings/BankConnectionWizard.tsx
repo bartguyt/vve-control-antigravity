@@ -284,12 +284,17 @@ export const BankConnectionWizard: React.FC<Props> = ({ onComplete }) => {
 
             // For each selected account, sync it (which will save it to DB)
             for (const uid of Array.from(selectedAccounts)) {
-                addLog(`Syncing account: ${uid}`);
+                // Find the account details we already have from step 3
+                const account = availableAccounts.find(a => a.uid === uid);
+                const accountName = account?.name || 'Unknown Account';
+
+                addLog(`Syncing account: ${accountName} (${uid})`);
 
                 const { data, error } = await supabase.functions.invoke('enable-banking', {
                     body: {
                         action: 'sync_transactions',
                         account_uid: uid,
+                        account_name: accountName, // Pass the name from step 3!
                         association_id: associationId
                     }
                 });
@@ -297,7 +302,7 @@ export const BankConnectionWizard: React.FC<Props> = ({ onComplete }) => {
                 if (error) throw error;
                 if (data?.error) throw new Error(data.error);
 
-                addLog(`✅ Account ${uid} synced successfully`);
+                addLog(`✅ Account "${accountName}" synced successfully`);
             }
 
             addLog(`🎉 All accounts saved!`);
