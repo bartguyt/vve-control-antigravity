@@ -557,9 +557,9 @@ export const BankConnectionWizard: React.FC<Props> = ({ onComplete }) => {
                 </div>
 
                 {/* Debug Log */}
-                <div className="bg-black text-green-400 p-4 rounded-md font-mono text-xs max-h-60 overflow-y-auto">
+                <div className="bg-gray-50 border border-gray-200 text-gray-700 p-4 rounded-md font-mono text-xs max-h-60 overflow-y-auto">
                     {logs.length === 0 ? (
-                        <div className="text-gray-500">No logs yet...</div>
+                        <div className="text-gray-400">No logs yet...</div>
                     ) : (
                         logs.map((log, i) => (
                             <div key={i}>{log}</div>

@@ -286,7 +286,7 @@ export const bankService = {
                 *,
                 linked_member:profiles(id, first_name, last_name, email)
             `)
-            .eq('account_id', accountId)
+            .eq('bank_account_id', accountId)
             .order('booking_date', { ascending: false });
 
         return data || [];
@@ -297,7 +297,7 @@ export const bankService = {
         const { data, error } = await supabase
             .from('bank_transactions')
             .select('*')
-            .eq('account_id', accountId)
+            .eq('bank_account_id', accountId)
             .is('financial_category_id', null)
             .not('linked_member_id', 'is', null);
 
@@ -820,7 +820,7 @@ export const bankService = {
         const { error } = await supabase
             .from('bank_transactions')
             .delete()
-            .eq('account_id', accountId);
+            .eq('bank_account_id', accountId);
 
         if (error) throw error;
 
@@ -834,7 +834,7 @@ export const bankService = {
         const { data: transactions, error } = await supabase
             .from('bank_transactions')
             .select('*, financial_categories(name)')
-            .eq('account_id', accountId);
+            .eq('bank_account_id', accountId);
 
         if (error) throw error;
 
@@ -947,7 +947,7 @@ export const bankService = {
         const { data: transactions, error: txError } = await supabase
             .from('bank_transactions')
             .select('amount')
-            .eq('account_id', accountId);
+            .eq('bank_account_id', accountId);
 
         if (txError) throw txError;
 

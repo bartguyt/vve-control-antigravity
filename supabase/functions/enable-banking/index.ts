@@ -288,23 +288,16 @@ serve(async (req) => {
 
             console.log(`Syncing using session ${connection.external_id}`);
 
-            // 3. Get session details (includes accounts)
-            const sessionUrl = `${API_URL}/sessions/${connection.external_id}`;
-            const sessionResp = await fetch(sessionUrl, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${jwt}`
-                }
-            });
+            // 3. Get accounts from metadata (stored during activate_session)
+            // CRITICAL: Don't use GET /sessions - it returns different UIDs each time!
+            // We saved the original accounts with stable UIDs in metadata during activate_session
+            const accounts = connection.metadata?.accounts || [];
 
-            if (!sessionResp.ok) {
-                const errText = await sessionResp.text();
-                throw new Error(`Enable Banking GET /sessions Error (${sessionResp.status}): ${errText}`);
+            if (accounts.length === 0) {
+                throw new Error(`No accounts found in connection metadata. Connection may be invalid.`);
             }
 
-            const sessionData = await sessionResp.json();
-            const accounts = sessionData.accounts || [];
+            console.log(`Using ${accounts.length} account(s) from metadata (stable UIDs)`);
             let allTransactions: any[] = [];
             let debugInfo: any[] = [];
 
@@ -342,25 +335,42 @@ serve(async (req) => {
                 let syncDateFrom = date_from; // Use request param if provided
 
                 if (!syncDateFrom) {
-                    // Fetch last_synced_at from DB if not provided
-                    const { data: acctInfo } = await supabase
-                        .from('bank_accounts')
-                        .select('last_synced_at')
-                        .eq('association_id', association_id)
-                        .eq('external_account_uid', accUid)
-                        .maybeSingle();
+                    // Fetch last_synced_at from DB if not provided (using IBAN as stable key)
+                    const accIban = acc.account_id?.iban;
 
-                    if (acctInfo?.last_synced_at) {
-                        syncDateFrom = new Date(acctInfo.last_synced_at).toISOString();
-                        console.log(`[${accUid}] Using stored last_synced_at: ${syncDateFrom}`);
+                    if (accIban) {
+                        const { data: acctInfo } = await supabase
+                            .from('bank_accounts')
+                            .select('last_synced_at')
+                            .eq('association_id', association_id)
+                            .eq('iban', accIban)
+                            .maybeSingle();
+
+                        if (acctInfo?.last_synced_at) {
+                            // Convert to DATE format (YYYY-MM-DD) not ISO timestamp
+                            syncDateFrom = new Date(acctInfo.last_synced_at).toISOString().split('T')[0];
+                            console.log(`[${accUid}] Using stored last_synced_at: ${syncDateFrom}`);
+                        } else {
+                            // Default to 2025-01-01 for Mock ASPSP test data
+                            syncDateFrom = '2025-01-01';
+                            console.log(`[${accUid}] No last_synced_at, fetching from: ${syncDateFrom}`);
+                        }
                     } else {
-                        // Default to a far past date if never synced
-                        syncDateFrom = '2020-01-01';
-                        console.log(`[${accUid}] No last_synced_at, fetching from start: ${syncDateFrom}`);
+                        // No IBAN available, use default
+                        syncDateFrom = '2025-01-01';
+                        console.log(`[${accUid}] No IBAN available, fetching from: ${syncDateFrom}`);
                     }
                 }
 
-                const syncDateTo = date_to || new Date().toISOString();
+                // Convert date_to to DATE format (YYYY-MM-DD) not ISO timestamp
+                const syncDateTo = date_to || new Date().toISOString().split('T')[0];
+
+                console.log(`[${accUid}] Transaction sync parameters:`, {
+                    date_from: syncDateFrom,
+                    date_to: syncDateTo,
+                    account_uid: accUid,
+                    date_range_days: Math.floor((new Date(syncDateTo).getTime() - new Date(syncDateFrom).getTime()) / (1000 * 60 * 60 * 24))
+                });
 
                 // Fetch ALL transactions using pagination
                 let continuationKey: string | null = null;
@@ -375,7 +385,8 @@ serve(async (req) => {
                         txUrl += `&continuation_key=${encodeURIComponent(continuationKey)}`;
                     }
 
-                    console.log(`[${accUid}] Fetching page ${pageCount}`);
+                    console.log(`[${accUid}] 🌐 Fetching page ${pageCount}`);
+                    console.log(`[${accUid}] 📍 Full URL: ${txUrl}`);
 
                     const txResp = await fetch(txUrl, {
                         method: 'GET',
@@ -395,7 +406,22 @@ serve(async (req) => {
                     const txData = JSON.parse(rawText);
                     const txList = txData.transactions || txData.booked || [];
 
-                    console.log(`[${accUid}] Got ${txList.length} transactions on page ${pageCount}`);
+                    console.log(`[${accUid}] Page ${pageCount} response:`, {
+                        transactions_count: txList.length,
+                        has_continuation: !!txData.continuation_key,
+                        response_keys: Object.keys(txData)
+                    });
+
+                    if (pageCount === 1 && txList.length === 0) {
+                        console.warn(`[${accUid}] ⚠️ No transactions found. This could mean:`);
+                        console.warn(`   1. The Mock ASPSP has no test transactions (add them via enablebanking.com Mock ASPSP tab)`);
+                        console.warn(`   2. The date range is incorrect`);
+                        console.warn(`   3. The account UID is wrong`);
+                        console.warn(`   Full response structure:`, JSON.stringify(txData, null, 2));
+                        console.warn(`   Response keys:`, Object.keys(txData));
+                        console.warn(`   Tried fields: transactions=${txData.transactions?.length}, booked=${txData.booked?.length}`);
+                    }
+
                     allAccountTransactions.push(...txList);
 
                     continuationKey = txData.continuation_key || null;
@@ -407,34 +433,76 @@ serve(async (req) => {
 
                 // PERSIST TO DATABASE
                 if (association_id && allAccountTransactions.length > 0) {
-                    // 1. Upsert bank_account
+                    // Use IBAN as stable identifier, or generate fallback for Mock accounts
+                    let accIban = acc.account_id?.iban;
+
+                    if (!accIban) {
+                        // Mock ASPSP may not have IBAN - use a stable fallback
+                        // Generate from name + currency (these should be stable)
+                        const fallbackId = `MOCK-${accName.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 30)}-${acc.currency || 'EUR'}`;
+                        accIban = fallbackId;
+                        console.log(`⚠️ Account ${accUid} has no IBAN - using fallback: ${fallbackId}`);
+                    }
+
+                    // 1. Check if account already exists (by IBAN - stable identifier)
+                    console.log(`DUPLICATE CHECK - Looking for: association_id="${association_id}", iban="${accIban}"`);
+
+                    const { data: existingAccount, error: checkError } = await supabase
+                        .from('bank_accounts')
+                        .select('id, name, iban, external_account_uid, is_active')
+                        .eq('association_id', association_id)
+                        .eq('iban', accIban)
+                        .maybeSingle();
+
+                    if (checkError) {
+                        console.error('DUPLICATE CHECK - Error:', checkError);
+                    } else if (existingAccount) {
+                        console.log(`DUPLICATE CHECK - FOUND EXISTING: id=${existingAccount.id}, name="${existingAccount.name}", iban="${existingAccount.iban}"`);
+                        console.log(`  Old UID: ${existingAccount.external_account_uid}`);
+                        console.log(`  New UID: ${accUid} (will be updated)`);
+                    } else {
+                        console.log('DUPLICATE CHECK - NOT FOUND - will create new');
+                    }
+
+                    // 2. Upsert bank_account (IBAN is unique key, UID gets updated)
+                    console.log(`UPSERT - Values: association_id="${association_id}", iban="${accIban}", external_account_uid="${accUid}" (transient), name="${accName}"`);
+
                     const { data: bankAccount, error: baError } = await supabase
                         .from('bank_accounts')
                         .upsert({
                             association_id,
-                            external_account_uid: accUid,
+                            iban: accIban, // STABLE unique key
+                            external_account_uid: accUid, // TRANSIENT - updates each sync
                             name: accName,
-                            iban: acc.account_id?.iban || null,
                             bic: acc.bic_fi || null,
                             currency: acc.currency || 'EUR',
                             connection_id: connection.id,
-                            last_synced_at: new Date().toISOString() // CORRECTED COLUMN NAME
-                        }, { onConflict: 'association_id,external_account_uid' })
+                            is_active: true,
+                            last_synced_at: new Date().toISOString()
+                        }, { onConflict: 'association_id,iban' }) // Changed from external_account_uid to iban
                         .select('id')
                         .single();
 
                     if (baError) {
                         console.error('Failed to upsert bank_account:', baError);
                     } else if (bankAccount) {
+                        console.log(`Bank account upserted successfully: id=${bankAccount.id}`);
                         // 2. Upsert transactions
                         const txInserts = allAccountTransactions.map((tx: any) => ({
                             bank_account_id: bankAccount.id,
+                            association_id: association_id, // Direct reference for easier querying
                             external_reference: tx.entry_reference || `${tx.booking_date}-${tx.transaction_amount?.amount}`,
                             booking_date: tx.booking_date,
                             value_date: tx.value_date || null,
                             amount: parseFloat(tx.transaction_amount?.amount || '0'),
                             currency: tx.transaction_amount?.currency || 'EUR',
                             credit_debit: tx.credit_debit_indicator || null,
+                            // Store both creditor and debtor separately (more useful than generic counterparty)
+                            creditor_name: tx.creditor?.name || null,
+                            debtor_name: tx.debtor?.name || null,
+                            creditor_iban: tx.creditor_account?.iban || null,
+                            debtor_iban: tx.debtor_account?.iban || null,
+                            // Keep counterparty for backward compatibility
                             counterparty_name: tx.creditor?.name || tx.debtor?.name || null,
                             counterparty_iban: tx.creditor_account?.iban || tx.debtor_account?.iban || null,
                             description: Array.isArray(tx.remittance_information)
@@ -458,26 +526,39 @@ serve(async (req) => {
                     }
                 } else if (association_id) {
                     // Even if 0 transactions, update the timestamp so we don't fetch old history again
-                    await supabase
+                    // Use IBAN as stable identifier, or generate fallback for Mock accounts
+                    let accIban = acc.account_id?.iban;
+
+                    if (!accIban) {
+                        // Mock ASPSP may not have IBAN - use a stable fallback
+                        const fallbackId = `MOCK-${accName.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 30)}-${acc.currency || 'EUR'}`;
+                        accIban = fallbackId;
+                        console.log(`⚠️ Account ${accUid} has no IBAN (no transactions) - using fallback: ${fallbackId}`);
+                    }
+
+                    console.log(`Upserting bank_account (no transactions): association_id=${association_id}, iban=${accIban}, name=${accName}`);
+
+                    const { data: bankAccount, error: baError } = await supabase
                         .from('bank_accounts')
                         .upsert({
                             association_id,
-                            external_account_uid: accUid,
+                            iban: accIban, // STABLE unique key
+                            external_account_uid: accUid, // TRANSIENT - updates each sync
                             name: accName,
-                            // other fields... ideally we just patch, but upsert needs keys.
-                            // If it exists, detailed upsert above is better.
-                            // Simplified update just for timestamp if we have no new txs?
-                            // Actually, let's just do the same upsert to ensure timestamp update even if 0 items found.
-                            // But we need consistent fields.
-                            // Let's copy the upsert object from above.
-                            external_account_uid: accUid,
-                            name: accName,
-                            iban: acc.account_id?.iban || null,
                             bic: acc.bic_fi || null,
                             currency: acc.currency || 'EUR',
                             connection_id: connection.id,
+                            is_active: true,
                             last_synced_at: new Date().toISOString()
-                        }, { onConflict: 'association_id,external_account_uid' });
+                        }, { onConflict: 'association_id,iban' }) // Changed from external_account_uid to iban
+                        .select('id')
+                        .single();
+
+                    if (baError) {
+                        console.error('Failed to upsert bank_account (no transactions):', baError);
+                    } else if (bankAccount) {
+                        console.log(`Bank account upserted successfully (no transactions): id=${bankAccount.id}`);
+                    }
                 }
             }
 
