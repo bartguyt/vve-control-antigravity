@@ -4,9 +4,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { PRIVATE_KEY } from './priv_key.ts';
 
 const APP_ID = 'a34e3b69-cc7f-4eee-be2d-1fc438d020c9';
-const KEY_ID = APP_ID; // Key ID is identiek aan App ID
+const KEY_ID = APP_ID; // Enable Banking uses APP_ID as KEY_ID
 
-const REDIRECT_URI = 'http://localhost:5173/finance/enable-banking-dev';
+const REDIRECT_URI = 'http://localhost:5174/finance/enable-banking-dev';
 const API_URL = 'https://api.enablebanking.com';
 
 const corsHeaders = {
@@ -38,6 +38,10 @@ serve(async (req) => {
         // NEW: Fetch available banks (ASPSPs)
         if (action === 'get_aspsps') {
 
+            // Debug: Log credentials being used
+            console.log("DEBUG: APP_ID =", APP_ID);
+            console.log("DEBUG: KEY_ID =", KEY_ID);
+
             const jwt = await new jose.SignJWT({
                 "iss": APP_ID,
                 "aud": "api.enablebanking.com",
@@ -61,7 +65,21 @@ serve(async (req) => {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(`Enable Banking ASPSPs error: ${JSON.stringify(data)}`);
+                // Include debug info in error response
+                const errorResponse = {
+                    error: `Enable Banking ASPSPs error: ${JSON.stringify(data)}`,
+                    debug: {
+                        app_id: APP_ID,
+                        key_id: KEY_ID,
+                        url: url,
+                        status: response.status
+                    }
+                };
+                console.error("Enable Banking API Error:", errorResponse);
+                return new Response(JSON.stringify(errorResponse), {
+                    status: response.status,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                });
             }
 
             return new Response(JSON.stringify(data), {
@@ -159,11 +177,17 @@ serve(async (req) => {
             const accounts = sessionData.accounts || [];
 
             // 3. Save connection to DB with the REAL active session ID
+            // IMPORTANT: Include association_id to support multi-association scenarios
+            if (!association_id) {
+                throw new Error("association_id is required to create a bank connection");
+            }
+
             const { error: dbError } = await supabase
                 .from('bank_connections')
                 .upsert({
                     provider: 'enable_banking',
                     external_id: activeSessionId,
+                    association_id: association_id, // CRITICAL: Link to specific VvE
                     status: 'active',
                     access_token: code,
                     metadata: { accounts_count: accounts.length, accounts: accounts },
@@ -202,18 +226,24 @@ serve(async (req) => {
         }
 
         else if (action === 'sync_transactions') {
-            // 1. Get Active Connection from DB
+            // CRITICAL FIX: Filter by association_id AND connection_id for multi-VvE support
+            if (!association_id) {
+                throw new Error("association_id is required for sync_transactions");
+            }
+
+            // 1. Get Active Connection from DB filtered by association
             const { data: connection, error } = await supabase
                 .from('bank_connections')
                 .select('*')
                 .eq('provider', 'enable_banking')
+                .eq('association_id', association_id) // CRITICAL: Filter by VvE
                 .eq('status', 'active')
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .single();
 
             if (error || !connection) {
-                throw new Error("No active bank connection found in database to sync.");
+                throw new Error(`No active bank connection found for association ${association_id}`);
             }
 
             // 2. Prepare JWT for Access
@@ -424,13 +454,25 @@ serve(async (req) => {
             });
         }
         else if (action === 'check_status') {
-            // Query DB for active connection
-            const { data: connections, error } = await supabase
+            // CRITICAL FIX: Filter by association_id OR connection_id
+            const connection_id = body.connection_id; // For lookups by ID
+
+            let query = supabase
                 .from('bank_connections')
                 .select('*')
                 .eq('provider', 'enable_banking')
-                .eq('status', 'active')
-                .limit(1);
+                .eq('status', 'active');
+
+            // Filter by either connection_id or association_id
+            if (connection_id) {
+                query = query.eq('id', connection_id);
+            } else if (association_id) {
+                query = query.eq('association_id', association_id);
+            }
+
+            query = query.limit(1);
+
+            const { data: connections, error } = await query;
 
             if (error) throw error;
 
@@ -438,7 +480,11 @@ serve(async (req) => {
 
             return new Response(JSON.stringify({
                 connected: isConnected,
-                connection: isConnected ? connections[0] : null
+                connection: isConnected ? connections[0] : null,
+                status: isConnected ? 'active' : 'inactive',
+                valid_until: isConnected ? connections[0].expires_at : null,
+                metadata: isConnected ? connections[0].metadata : null,
+                association_id: isConnected ? connections[0].association_id : null
             }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });

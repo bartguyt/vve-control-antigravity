@@ -33,3 +33,12 @@ dist-ssr
 !src/**/*.sql
 supabase/functions/enable-banking/priv_key.ts
 claude.md
+
+# Database Backups (stored outside repo)
+backups/
+*.backup
+*.dump
+*.sql.gz
+*.sql.gpg
+*.tar.gz.gpg
+backup.log

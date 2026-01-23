@@ -23,6 +23,7 @@ const SettingsPage = React.lazy(() => import('./features/settings/SettingsPage')
 const AssignmentsPage = React.lazy(() => import('./features/assignments/AssignmentsPage').then(module => ({ default: module.AssignmentsPage })));
 const AdminDashboardPage = React.lazy(() => import('./features/admin/AdminDashboardPage').then(module => ({ default: module.AdminDashboardPage })));
 const EnableBankingSandbox = React.lazy(() => import('./features/finance/EnableBankingSandbox').then(module => ({ default: module.EnableBankingSandbox })));
+const EnableBankingSandboxV2 = React.lazy(() => import('./features/finance/EnableBankingSandboxV2').then(module => ({ default: module.EnableBankingSandboxV2 })));
 
 // Placeholders
 const PlaceholderDefault = () => <div className="p-4">Deze pagina is nog in ontwikkeling.</div>;
@@ -79,6 +80,7 @@ function App() {
                   </RoleProtectedRoute>
                 } />
                 <Route path="finance/enable-banking-dev" element={<EnableBankingSandbox />} />
+                <Route path="finance/enable-banking-v2" element={<EnableBankingSandboxV2 />} />
 
                 {/* Maintenance - Beheer & Onderhoud */}
                 <Route element={<RoleProtectedRoute allowedRoles={['board', 'tech_comm', 'admin', 'manager']} />}>

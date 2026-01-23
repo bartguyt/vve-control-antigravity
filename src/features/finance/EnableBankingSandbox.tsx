@@ -277,12 +277,16 @@ export const EnableBankingSandbox: React.FC = () => {
                 addLog("WARNING: No stored Session ID found!");
             }
 
+            // Get association_id for this connection
+            const associationId = await associationService.getCurrentAssociationId();
+
             // Step 1: Exchange code for session and get accounts list (don't fetch transactions yet)
             const { data, error } = await supabase.functions.invoke('enable-banking', {
                 body: {
                     action: 'activate_session',  // New action: just activates session, returns accounts
                     code,
-                    session_id: storedSessionId
+                    session_id: storedSessionId,
+                    association_id: associationId
                 }
             });
 
@@ -332,7 +336,20 @@ export const EnableBankingSandbox: React.FC = () => {
             });
 
             if (error) throw error;
-            if (data?.error) throw new Error(data.error);
+
+            // Check for error in response and show debug info
+            if (data?.error) {
+                console.error("Enable Banking Error:", data);
+                if (data.debug) {
+                    addLog(`❌ Error: ${data.error}`);
+                    addLog(`📋 Debug Info:`);
+                    addLog(`  APP_ID: ${data.debug.app_id}`);
+                    addLog(`  KEY_ID: ${data.debug.key_id}`);
+                    addLog(`  URL: ${data.debug.url}`);
+                    addLog(`  Status: ${data.debug.status}`);
+                }
+                throw new Error(data.error);
+            }
 
             // Log the FULL response to see what we get
             console.log("RAW get_aspsps response:", JSON.stringify(data));
@@ -365,6 +382,8 @@ export const EnableBankingSandbox: React.FC = () => {
 
     // Fetch banks on component mount
     useEffect(() => {
+        // Reset status to idle on mount (in case of stale state)
+        setStatus('idle');
         fetchAvailableBanks();
     }, []);
 
@@ -380,8 +399,16 @@ export const EnableBankingSandbox: React.FC = () => {
         addLog(`Initiating auth with: ${aspsp_name} (${aspsp_country})...`);
 
         try {
+            // Get association_id for this connection
+            const associationId = await associationService.getCurrentAssociationId();
+
             const { data, error } = await supabase.functions.invoke('enable-banking', {
-                body: { action: 'init_auth', aspsp_name, aspsp_country }
+                body: {
+                    action: 'init_auth',
+                    aspsp_name,
+                    aspsp_country,
+                    association_id: associationId
+                }
             });
 
             if (error) throw error;
@@ -611,15 +638,27 @@ export const EnableBankingSandbox: React.FC = () => {
                                         )}
                                     </div>
 
-                                    <Button
-                                        onClick={handleConnect}
-                                        loading={status === 'connecting'}
-                                        color="slate"
-                                        className="w-full bg-slate-blue hover:bg-slate-700 border-none"
-                                        disabled={!selectedBank || loadingBanks}
-                                    >
-                                        Start Authenticatie Flow
-                                    </Button>
+                                    <div className="space-y-2">
+                                        <Button
+                                            onClick={handleConnect}
+                                            loading={status === 'connecting'}
+                                            color="slate"
+                                            className="w-full bg-slate-blue hover:bg-slate-700 border-none"
+                                            disabled={!selectedBank || loadingBanks}
+                                        >
+                                            Start Authenticatie Flow
+                                        </Button>
+                                        {status === 'connecting' && (
+                                            <Button
+                                                onClick={() => setStatus('idle')}
+                                                variant="secondary"
+                                                color="gray"
+                                                className="w-full text-xs"
+                                            >
+                                                Annuleren
+                                            </Button>
+                                        )}
+                                    </div>
 
                                     {/* After connection: Account Selection */}
                                     {status === 'connected' && accountsList.length > 0 && (

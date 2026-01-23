@@ -188,6 +188,7 @@ export const SuperAdminPage: React.FC = () => {
                                     </TableBody>
                                 </Table>
                             </Card>
+                        </div>
                     </TabPanel>
 
                     <TabPanel>
