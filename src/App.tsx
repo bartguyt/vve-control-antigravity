@@ -19,11 +19,14 @@ const TasksPage = React.lazy(() => import('./features/tasks/TasksPage').then(mod
 const SuppliersPage = React.lazy(() => import('./features/suppliers/SuppliersPage').then(module => ({ default: module.SuppliersPage })));
 const ContributionsPage = React.lazy(() => import('./features/finance/ContributionsPage').then(module => ({ default: module.ContributionsPage })));
 const AccountingPage = React.lazy(() => import('./features/finance/AccountingPage').then(module => ({ default: module.AccountingPage })));
-const SettingsPage = React.lazy(() => import('./features/settings/SettingsPage').then(module => ({ default: module.SettingsPage })));
 const AssignmentsPage = React.lazy(() => import('./features/assignments/AssignmentsPage').then(module => ({ default: module.AssignmentsPage })));
 const AdminDashboardPage = React.lazy(() => import('./features/admin/AdminDashboardPage').then(module => ({ default: module.AdminDashboardPage })));
-const EnableBankingSandbox = React.lazy(() => import('./features/finance/EnableBankingSandbox').then(module => ({ default: module.EnableBankingSandbox })));
 const EnableBankingSandboxV2 = React.lazy(() => import('./features/finance/EnableBankingSandboxV2').then(module => ({ default: module.EnableBankingSandboxV2 })));
+
+// System Settings
+const SystemSettingsPage = React.lazy(() => import('./features/settings/SystemSettingsPage').then(module => ({ default: module.SystemSettingsPage })));
+const GeneralSettingsPage = React.lazy(() => import('./features/settings/GeneralSettingsPage').then(module => ({ default: module.GeneralSettingsPage })));
+const ConnectionsPage = React.lazy(() => import('./features/settings/ConnectionsPage').then(module => ({ default: module.ConnectionsPage })));
 
 // Placeholders
 const PlaceholderDefault = () => <div className="p-4">Deze pagina is nog in ontwikkeling.</div>;
@@ -79,7 +82,6 @@ function App() {
                     <AccountingPage />
                   </RoleProtectedRoute>
                 } />
-                <Route path="finance/enable-banking-dev" element={<EnableBankingSandbox />} />
                 <Route path="finance/enable-banking-v2" element={<EnableBankingSandboxV2 />} />
 
                 {/* Maintenance - Beheer & Onderhoud */}
@@ -90,7 +92,11 @@ function App() {
 
                 {/* System - Systeem */}
                 <Route element={<RoleProtectedRoute allowedRoles={['board', 'admin', 'manager']} />}>
-                  <Route path="system/settings" element={<SettingsPage />} />
+                  <Route path="system" element={<SystemSettingsPage />}>
+                    <Route index element={<Navigate to="/system/general" replace />} />
+                    <Route path="general" element={<GeneralSettingsPage />} />
+                    <Route path="connections/bank" element={<ConnectionsPage />} />
+                  </Route>
                 </Route>
 
                 <Route element={<RoleProtectedRoute allowedRoles={[]} requireSuperAdmin={true} />}>

@@ -52,7 +52,6 @@ const navGroups: NavGroup[] = [
         items: [
             { name: 'Boekhouding', path: '/finance/accounting', icon: BookOpenIcon },
             { name: 'Bankrekening', path: '/finance/bank', icon: CreditCardIcon },
-            { name: 'Bank (Dev)', path: '/finance/enable-banking-dev', icon: BuildingLibraryIcon },
             { name: 'Ledenbijdragen', path: '/finance/contributions', icon: CurrencyEuroIcon },
         ]
     },
@@ -73,7 +72,7 @@ const navGroups: NavGroup[] = [
     {
         title: 'Systeem',
         items: [
-            { name: 'Instellingen', path: '/system/settings', icon: Cog6ToothIcon },
+            { name: 'Instellingen', path: '/system', icon: Cog6ToothIcon },
             { name: 'Beheer Dashboard', path: '/system/admin', icon: BuildingOffice2Icon },
         ]
     }
@@ -89,7 +88,9 @@ const restrictedPaths: Record<string, string[]> = {
     '/maintenance/suppliers': ['admin', 'manager', 'board', 'tech_comm'],
     '/maintenance/assignments': ['admin', 'manager', 'board', 'tech_comm'],
 
-    '/system/settings': ['admin', 'manager', 'board'],
+    '/system': ['admin', 'manager', 'board'],
+    '/system/general': ['admin', 'manager', 'board'],
+    '/system/connections/bank': ['admin', 'manager', 'board'],
     '/system/admin': [], // Special case: checked via isSuperAdmin
 };
 
