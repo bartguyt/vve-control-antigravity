@@ -216,6 +216,130 @@ supabase functions deploy enable-banking --no-verify-jwt
 
 # Apply migrations
 supabase db push
+
+# Manual database backup
+./scripts/backup-database.sh
+
+# Restore from backup
+./scripts/restore-database.sh latest
+
+# Check Supabase status
+supabase status
+
+# View logs from Edge Function
+supabase functions logs enable-banking --follow
+```
+
+---
+
+## Development Workflows
+
+### Working on Banking Integration
+
+1. **Start Development**:
+```bash
+# Terminal 1: Start dev server
+npm run dev
+
+# Terminal 2: Watch Edge Function logs (optional)
+supabase functions logs enable-banking --follow
+```
+
+2. **After Edge Function Changes**:
+```bash
+# Deploy changes
+supabase functions deploy enable-banking --no-verify-jwt
+
+# Test in browser immediately (no restart needed)
+```
+
+3. **After Database Schema Changes**:
+```bash
+# Create migration file in supabase/migrations/
+# Apply migration
+supabase db push
+
+# Verify in database
+psql $(supabase status | grep "DB URL" | awk '{print $3}') -c "\d table_name"
+```
+
+4. **Debugging Enable Banking Issues**:
+```typescript
+// Add debug output in Edge Function
+console.log("DEBUG: APP_ID =", APP_ID);
+console.log("DEBUG: KEY_ID =", KEY_ID);
+console.log("DEBUG: Request body =", JSON.stringify(body));
+
+// Check logs
+// supabase functions logs enable-banking --follow
+
+// Add debug output in frontend
+console.log("Response:", JSON.stringify(data, null, 2));
+```
+
+### Best Practices
+
+#### Frontend Component State Management
+```typescript
+// ALWAYS reset state on mount to prevent stale state
+useEffect(() => {
+  setStatus('idle');
+  setError(null);
+  fetchInitialData();
+}, []);
+
+// Provide user escape hatch (cancel button)
+{status === 'loading' && (
+  <Button onClick={() => setStatus('idle')}>
+    Annuleren
+  </Button>
+)}
+```
+
+#### Edge Function Error Handling
+```typescript
+// ALWAYS return detailed error info for debugging
+if (!response.ok) {
+  const errorResponse = {
+    error: `API error: ${JSON.stringify(data)}`,
+    debug: {
+      app_id: APP_ID,
+      url: url,
+      status: response.status,
+      timestamp: new Date().toISOString()
+    }
+  };
+  console.error("API Error:", errorResponse);
+  return new Response(JSON.stringify(errorResponse), {
+    status: response.status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+```
+
+#### Association Context
+```typescript
+// ALWAYS get association_id for banking operations
+import { associationService } from '@/lib/association';
+
+const associationId = await associationService.getCurrentAssociationId();
+
+// Pass it to ALL banking operations
+await supabase.functions.invoke('enable-banking', {
+  body: {
+    action: 'sync_transactions',
+    association_id: associationId  // REQUIRED
+  }
+});
+```
+
+#### Database Queries - Multi-Association Support
+```sql
+-- ALWAYS filter by association_id
+SELECT * FROM bank_connections
+WHERE provider = 'enable_banking'
+  AND association_id = $1  -- CRITICAL for multi-VvE support
+  AND status = 'active';
 ```
 
 ---
@@ -632,12 +756,203 @@ UNION ALL SELECT * FROM matching_status;
 
 ---
 
+## Hexagonal Banking Architecture
+
+### Overview
+De banking module is gebouwd volgens **Hexagonal Architecture (Ports & Adapters)** voor maximale testbaarheid en flexibiliteit.
+
+### Structure
+```
+src/features/finance/banking/
+├── core/                    # Business logic (framework-agnostic)
+│   ├── BankingCore.ts      # Main orchestrator
+│   └── ProviderRegistry.ts # Provider management
+├── ports/                   # Interfaces (contracts)
+│   ├── IBankingProvider.ts # Bank provider interface
+│   └── IBankingRepository.ts # Database interface
+├── adapters/               # Implementations
+│   ├── EnableBankingAdapter.ts  # Enable Banking implementation
+│   ├── MockBankingAdapter.ts    # Mock for testing
+│   └── SupabaseRepository.ts    # Supabase DB implementation
+└── types/                  # Shared types
+    └── index.ts
+```
+
+### Usage Pattern
+```typescript
+import { getBankingModule } from '@/features/finance/banking';
+
+// In component:
+const banking = getBankingModule(supabase);
+
+// Get available banks
+const banks = await banking.getAvailableBanks();
+
+// Initialize auth
+const { authUrl, sessionId } = await banking.initializeAuth(
+  bank.name,
+  bank.country,
+  associationId
+);
+
+// Activate session after OAuth callback
+const connection = await banking.activateSession(code, sessionId, associationId);
+
+// Sync account
+await banking.syncAccount(accountUid, associationId);
+```
+
+### Benefits
+- **Testability**: Easy to mock providers for unit tests
+- **Flexibility**: Swap banking providers without changing business logic
+- **Separation of Concerns**: Business logic independent of framework/libraries
+- **Future-proof**: Easy to add new providers (ING, Rabobank, etc.)
+
+---
+
+## Database Backup System
+
+### Automatic Backups
+Het project heeft een **automatisch backup systeem** dat triggered op elke merge naar main:
+
+```bash
+# Git hook: .git/hooks/post-merge
+# Triggers: scripts/backup-database.sh
+# Location: ~/backups/vve-control/YYYYMMDD_HHMMSS_branch_commithash/
+```
+
+### Backup Contents
+Elke backup bevat:
+- `schema.sql` - Database schema
+- `data.sql` - Alle data
+- `metadata.json` - Commit info, timestamp, branch
+- Symlink `latest` → meest recente backup
+
+### Commands
+```bash
+# Manuele backup
+./scripts/backup-database.sh
+
+# Restore latest
+./scripts/restore-database.sh latest
+
+# Restore specifieke backup
+./scripts/restore-database.sh 20260124_143022
+
+# Backup met encryptie (optioneel)
+BACKUP_ENCRYPT=true ./scripts/backup-database.sh
+```
+
+### Configuration
+- **Retention**: 30 dagen (automatische cleanup)
+- **Location**: Buiten git repository (`~/backups/`)
+- **Gitignore**: Backup files zijn uitgesloten
+- **Documentation**: `scripts/BACKUP_README.md`
+
+---
+
+## Enable Banking Troubleshooting
+
+### Critical Issues & Solutions
+
+#### 1. APP_ID = KEY_ID Pattern
+**Symptom**: `{"code":403,"message":"Application does not exist"}`
+
+**Root Cause**: Enable Banking uses the APP_ID as BOTH the application ID and the KEY_ID for JWT signing.
+
+**Solution**:
+```typescript
+const APP_ID = 'a34e3b69-cc7f-4eee-be2d-1fc438d020c9';
+const KEY_ID = APP_ID; // CRITICAL: Must be same as APP_ID
+```
+
+**How to verify**: The .pem filename downloaded from Enable Banking IS the APP_ID/KEY_ID.
+
+#### 2. association_id Requirement
+**Symptom**: `{"error": "association_id is required to create a bank connection"}`
+
+**Root Cause**:
+- Database migration not applied (missing `association_id` column)
+- Frontend not passing `association_id` in requests
+
+**Solution**:
+```typescript
+// Frontend: Pass association_id in ALL requests
+const associationId = await associationService.getCurrentAssociationId();
+
+await supabase.functions.invoke('enable-banking', {
+  body: {
+    action: 'init_auth',
+    aspsp_name,
+    aspsp_country,
+    association_id: associationId  // REQUIRED
+  }
+});
+```
+
+```sql
+-- Database: Apply migration
+-- supabase/migrations/20260124_enhance_banking_schema.sql
+ALTER TABLE bank_connections ADD COLUMN association_id UUID REFERENCES associations(id);
+```
+
+#### 3. Redirect URI Mismatch
+**Symptom**: `{"code":400,"message":"Redirect URI not allowed","error":"REDIRECT_URI_NOT_ALLOWED"}`
+
+**Root Cause**: Edge Function redirect URI doesn't match Enable Banking dashboard setting.
+
+**Solution**:
+1. Check current port: `npm run dev` (usually 5173 or 5174)
+2. Update Enable Banking dashboard: `http://localhost:5174/finance/enable-banking-dev`
+3. Update Edge Function:
+```typescript
+const REDIRECT_URI = 'http://localhost:5174/finance/enable-banking-dev';
+```
+4. Redeploy: `supabase functions deploy enable-banking --no-verify-jwt`
+
+#### 4. Loading State Stuck
+**Symptom**: Button shows loading spinner and is unclickable after error.
+
+**Root Cause**: State not reset on component mount or after error.
+
+**Solution**:
+```typescript
+useEffect(() => {
+  // Reset status to idle on mount (prevents stale state)
+  setStatus('idle');
+  fetchAvailableBanks();
+}, []);
+
+// Add cancel button for recovery
+{status === 'connecting' && (
+  <Button onClick={() => setStatus('idle')}>
+    Annuleren
+  </Button>
+)}
+```
+
+#### 5. Wrong Private Key
+**Symptom**: JWT validation errors, 403 responses.
+
+**Root Cause**: Old or incorrect private key in `priv_key.ts`.
+
+**Solution**:
+- Private key file is in `~/Downloads/` folder
+- Filename format: `{APP_ID}.pem`
+- Replace entire content of `priv_key.ts` with correct key
+- Verify filename matches APP_ID
+
+---
+
 ## Known Issues & Workarounds
 
 1. **Column naam**: `last_synced_at` niet `last_sync_at`
 2. **React StrictMode**: Dubbele mount - gebruik sessionStorage flags
 3. **RLS recursie**: Gebruik `SECURITY DEFINER` helper functions
 4. **Ghost users**: Profielen zonder `user_id` voor niet-geregistreerde eigenaren
+5. **Enable Banking APP_ID = KEY_ID**: Altijd dezelfde waarde gebruiken
+6. **association_id verplicht**: Alle banking operations vereisen association_id voor multi-VvE support
+7. **Port changes**: Vite kan naar andere port switchen (5173→5174) - update redirect URI accordingly
 
 ---
 
@@ -652,7 +967,24 @@ src/
 ├── features/
 │   ├── auth/                 # LoginPage, UpdatePasswordPage
 │   ├── members/              # MemberListPage, MemberDetailPage, modals, memberService
-│   ├── finance/              # ContributionsPage, BankAccountPage, AccountingPage, services
+│   ├── finance/              # Finance module
+│   │   ├── EnableBankingSandbox.tsx      # Legacy banking UI (direct Edge Function calls)
+│   │   ├── EnableBankingSandboxV2.tsx    # New banking UI (uses hexagonal architecture)
+│   │   ├── BankAccountPage.tsx           # Account details page
+│   │   ├── ContributionsPage.tsx         # Member contributions management
+│   │   ├── AccountingPage.tsx            # Bookkeeping/accounting
+│   │   └── banking/                      # Hexagonal banking architecture
+│   │       ├── core/                     # Business logic (framework-agnostic)
+│   │       │   ├── BankingCore.ts        # Main orchestrator
+│   │       │   └── ProviderRegistry.ts   # Provider management
+│   │       ├── ports/                    # Interfaces (contracts)
+│   │       │   ├── IBankingProvider.ts   # Bank provider interface
+│   │       │   └── IBankingRepository.ts # Database interface
+│   │       ├── adapters/                 # Implementations
+│   │       │   ├── EnableBankingAdapter.ts  # Enable Banking implementation
+│   │       │   ├── MockBankingAdapter.ts    # Mock for testing
+│   │       │   └── SupabaseRepository.ts    # Supabase DB implementation
+│   │       └── types/                    # Shared types
 │   ├── voting/               # ProposalsPage, Kanban, votingService
 │   ├── tasks/                # TasksPage, taskService
 │   ├── assignments/          # AssignmentsPage, assignmentService
@@ -677,12 +1009,28 @@ src/
     ├── debugUtils.ts
     └── transactionUtils.ts
 
+scripts/
+├── backup-database.sh       # Automatic database backup script
+├── restore-database.sh      # Database restore script
+└── BACKUP_README.md         # Backup system documentation
+
+.git/hooks/
+└── post-merge               # Git hook for automatic backups on merge to main
+
 supabase/
 ├── functions/
-│   └── enable-banking/      # PSD2 Edge Function
+│   └── enable-banking/
+│       ├── index.ts         # PSD2 Edge Function (all actions)
+│       └── priv_key.ts      # Enable Banking RSA private key
 └── migrations/              # SQL migration files (100+ bestanden)
+    ├── 20260122_create_banking_tables.sql
+    ├── 20260123_add_last_sync_to_bank_accounts.sql
+    └── 20260124_enhance_banking_schema.sql
 
 docs/
 ├── finance.md               # Finance module documentatie
 └── members.md               # Members module documentatie
+
+CROSS_TOOL_GUIDE.md          # Guide for working with multiple AI tools
+CLAUDE.md                     # This file - comprehensive project context
 ```
