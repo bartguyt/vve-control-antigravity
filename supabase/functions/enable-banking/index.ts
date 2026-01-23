@@ -41,6 +41,7 @@ serve(async (req) => {
             // Debug: Log credentials being used
             console.log("DEBUG: APP_ID =", APP_ID);
             console.log("DEBUG: KEY_ID =", KEY_ID);
+            console.log("DEBUG: Country =", country || 'XS (default)');
 
             const jwt = await new jose.SignJWT({
                 "iss": APP_ID,
@@ -63,6 +64,8 @@ serve(async (req) => {
             });
 
             const data = await response.json();
+            console.log("DEBUG: Response status =", response.status);
+            console.log("DEBUG: ASPSPs count =", data.aspsps?.length || 0);
 
             if (!response.ok) {
                 // Include debug info in error response

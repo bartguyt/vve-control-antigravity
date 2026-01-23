@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Title, Text, Button, Badge } from '@tremor/react';
-import { BuildingLibraryIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { Card, Title, Text, Button, Badge, TextInput, Select, SelectItem } from '@tremor/react';
+import { BuildingLibraryIcon, CheckCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { supabase } from '../../lib/supabase';
 import { associationService } from '../../lib/association';
 
@@ -30,6 +30,7 @@ export const BankConnectionWizard: React.FC<Props> = ({ onComplete }) => {
     const [availableBanks, setAvailableBanks] = useState<BankOption[]>([]);
     const [selectedBank, setSelectedBank] = useState<string>(''); // 'country:name' format
     const [loadingBanks, setLoadingBanks] = useState(false);
+    const [debugCountryCode, setDebugCountryCode] = useState<string>('XS'); // Debug: allow changing country code
 
     // Step 2: Authentication (redirect happens)
     const [authenticating, setAuthenticating] = useState(false);
@@ -47,26 +48,48 @@ export const BankConnectionWizard: React.FC<Props> = ({ onComplete }) => {
         handleOAuthCallback();
     }, []);
 
-    const fetchAvailableBanks = async () => {
+    const fetchAvailableBanks = async (countryCode?: string) => {
+        const country = countryCode || debugCountryCode;
         setLoadingBanks(true);
-        addLog("Fetching available banks...");
+        addLog(`Fetching banks for country: ${country}...`);
 
         try {
+            const requestBody = {
+                action: 'get_aspsps',
+                country: country // Pass country code to Edge Function
+            };
+
+            addLog(`📤 Request: ${JSON.stringify(requestBody)}`);
+
             const { data, error } = await supabase.functions.invoke('enable-banking', {
-                body: { action: 'get_aspsps' }
+                body: requestBody
             });
 
-            if (error) throw error;
+            addLog(`📥 Response: ${JSON.stringify(data)?.substring(0, 500)}...`);
+
+            if (error) {
+                addLog(`❌ Supabase Error: ${JSON.stringify(error)}`);
+                throw error;
+            }
+
             if (data?.error) {
                 if (data.debug) {
                     addLog(`❌ Error: ${data.error}`);
-                    addLog(`📋 Debug Info: APP_ID=${data.debug.app_id}, STATUS=${data.debug.status}`);
+                    addLog(`📋 Debug Info:`);
+                    addLog(`  APP_ID: ${data.debug.app_id}`);
+                    addLog(`  KEY_ID: ${data.debug.key_id}`);
+                    addLog(`  URL: ${data.debug.url}`);
+                    addLog(`  STATUS: ${data.debug.status}`);
                 }
                 throw new Error(data.error);
             }
 
             const aspsps = data.aspsps || [];
             addLog(`✅ Found ${aspsps.length} banks`);
+
+            if (aspsps.length > 0) {
+                addLog(`📋 Banks: ${aspsps.map((a: any) => `${a.name} (${a.country})`).join(', ')}`);
+            }
 
             const banks: BankOption[] = aspsps.map((aspsp: any) => ({
                 name: aspsp.name,
@@ -80,11 +103,16 @@ export const BankConnectionWizard: React.FC<Props> = ({ onComplete }) => {
             const mockBank = banks.find(b => b.country === 'XS');
             if (mockBank) {
                 setSelectedBank(`${mockBank.country}:${mockBank.name}`);
-                addLog(`ℹ️ Mock bank auto-selected`);
+                addLog(`ℹ️ Mock bank auto-selected: ${mockBank.name}`);
+            } else if (banks.length > 0) {
+                // Auto-select first bank if no mock
+                setSelectedBank(`${banks[0].country}:${banks[0].name}`);
+                addLog(`ℹ️ First bank auto-selected: ${banks[0].name}`);
             }
         } catch (err: any) {
             console.error(err);
             addLog(`❌ Error loading banks: ${err.message}`);
+            addLog(`📋 Full error: ${JSON.stringify(err)}`);
         } finally {
             setLoadingBanks(false);
         }
@@ -427,15 +455,49 @@ export const BankConnectionWizard: React.FC<Props> = ({ onComplete }) => {
             {/* Debug Panel */}
             <Card className="bg-gray-50">
                 <div className="flex items-center justify-between mb-3">
-                    <Title className="text-sm">Debug Log</Title>
+                    <Title className="text-sm">Debug Controls & Log</Title>
                     <Button
                         size="xs"
                         variant="secondary"
                         onClick={() => setLogs([])}
                     >
-                        Clear
+                        Clear Log
                     </Button>
                 </div>
+
+                {/* Debug Controls */}
+                <div className="mb-4 p-3 bg-white rounded-lg border border-gray-200">
+                    <Text className="text-xs font-medium text-gray-700 mb-2">Country Code (Sandbox)</Text>
+                    <div className="flex gap-2">
+                        <Select
+                            value={debugCountryCode}
+                            onValueChange={(val) => {
+                                setDebugCountryCode(val);
+                                addLog(`🔧 Country code changed to: ${val}`);
+                            }}
+                            className="w-32"
+                        >
+                            <SelectItem value="XS">XS (Mock)</SelectItem>
+                            <SelectItem value="NL">NL (Dutch)</SelectItem>
+                            <SelectItem value="BE">BE (Belgian)</SelectItem>
+                            <SelectItem value="DE">DE (German)</SelectItem>
+                            <SelectItem value="GB">GB (UK)</SelectItem>
+                        </Select>
+                        <Button
+                            size="xs"
+                            icon={ArrowPathIcon}
+                            onClick={() => fetchAvailableBanks(debugCountryCode)}
+                            loading={loadingBanks}
+                        >
+                            Reload Banks
+                        </Button>
+                    </div>
+                    <Text className="text-xs text-gray-500 mt-2">
+                        <strong>XS</strong> = Mock banks (test data) • <strong>NL/BE/DE/GB</strong> = Real bank sandboxes
+                    </Text>
+                </div>
+
+                {/* Debug Log */}
                 <div className="bg-black text-green-400 p-4 rounded-md font-mono text-xs max-h-60 overflow-y-auto">
                     {logs.length === 0 ? (
                         <div className="text-gray-500">No logs yet...</div>
