@@ -2,7 +2,6 @@
 import colors from 'tailwindcss/colors';
 
 export default {
-    darkMode: 'class',
     content: [
         "./index.html",
         "./src/**/*.{js,ts,jsx,tsx}",
@@ -50,36 +49,6 @@ export default {
                         emphasis: colors.gray[700], // gray-700
                         strong: '#2C3E50', // Slate Blue for strong text
                         inverted: colors.white, // white
-                    },
-                },
-                // dark mode (keeping as is for now, but could be updated later)
-                "dark-tremor": {
-                    brand: {
-                        faint: "#0B1229", // custom
-                        muted: colors.indigo[950], // blue-950
-                        subtle: colors.indigo[800], // blue-800
-                        DEFAULT: colors.indigo[500], // blue-500
-                        emphasis: colors.indigo[400], // blue-400
-                        inverted: colors.gray[950], // gray-950
-                    },
-                    background: {
-                        muted: "#131A2B", // custom
-                        subtle: colors.gray[800], // gray-800
-                        DEFAULT: colors.gray[900], // gray-900
-                        emphasis: colors.gray[300], // gray-300
-                    },
-                    border: {
-                        DEFAULT: colors.gray[800], // gray-800
-                    },
-                    ring: {
-                        DEFAULT: colors.gray[800], // gray-800
-                    },
-                    content: {
-                        subtle: colors.gray[600], // gray-600
-                        DEFAULT: colors.gray[500], // gray-500
-                        emphasis: colors.gray[200], // gray-200
-                        strong: colors.gray[50], // gray-50
-                        inverted: colors.gray[950], // gray-950
                     },
                 },
             },

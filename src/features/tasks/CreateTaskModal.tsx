@@ -90,17 +90,17 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
                             leaveFrom="opacity-100 scale-100"
                             leaveTo="opacity-0 scale-95"
                         >
-                            <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-6 text-left align-middle shadow-xl transition-all">
+                            <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
                                 <div className="flex justify-between items-center mb-4">
-                                    <Title className="dark:text-gray-100">{taskToEdit ? 'Taak Bewerken' : 'Nieuwe Taak'}</Title>
-                                    <button onClick={onClose} className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+                                    <Title>{taskToEdit ? 'Taak Bewerken' : 'Nieuwe Taak'}</Title>
+                                    <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
                                         <XMarkIcon className="h-6 w-6" />
                                     </button>
                                 </div>
 
                                 <form onSubmit={handleSubmit} className="space-y-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Titel</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Titel</label>
                                         <TextInput
                                             value={title}
                                             onChange={(e) => setTitle(e.target.value)}
@@ -110,7 +110,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Omschrijving</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Omschrijving</label>
                                         <Textarea
                                             value={description}
                                             onChange={(e) => setDescription(e.target.value)}
@@ -121,7 +121,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prioriteit</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Prioriteit</label>
                                             <Select value={priority} onValueChange={(val) => setPriority(val as TaskPriority)}>
                                                 <SelectItem value="low">Laag</SelectItem>
                                                 <SelectItem value="medium">Normaal</SelectItem>
@@ -130,7 +130,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
                                             </Select>
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                                             <Select value={status} onValueChange={(val) => setStatus(val as TaskStatus)}>
                                                 <SelectItem value="open">Open</SelectItem>
                                                 <SelectItem value="scheduled">Gepland</SelectItem>

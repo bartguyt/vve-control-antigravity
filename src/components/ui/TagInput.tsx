@@ -110,7 +110,7 @@ export const TagInput: React.FC<TagInputProps> = ({
                     <input
                         ref={inputRef}
                         type="text"
-                        className="w-full rounded-md border-gray-300 dark:border-slate-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border bg-white text-gray-900 placeholder:text-gray-400"
                         placeholder={value.length === 0 ? placeholder : ''}
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
@@ -138,9 +138,9 @@ export const TagInput: React.FC<TagInputProps> = ({
 
             {/* Confirmation Modal (Simple inline absolute for now, or fixed overlay) */}
             {showConfirm && (
-                <div className="absolute top-10 left-0 z-50 w-64 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-xl p-4 animate-in fade-in zoom-in duration-200">
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">Nieuwe tag toevoegen?</h4>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">"{pendingTag}" is nog geen bestaande categorie.</p>
+                <div className="absolute top-10 left-0 z-50 w-64 bg-white border border-gray-200 rounded-lg shadow-xl p-4 animate-in fade-in zoom-in duration-200">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-1">Nieuwe tag toevoegen?</h4>
+                    <p className="text-xs text-gray-500 mb-3">"{pendingTag}" is nog geen bestaande categorie.</p>
                     <div className="flex justify-end gap-2">
                         <Button size="xs" variant="secondary" onClick={() => setShowConfirm(false)}>
                             Annuleren

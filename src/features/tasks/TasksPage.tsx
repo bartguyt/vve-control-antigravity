@@ -117,9 +117,9 @@ export const TasksPage: React.FC = () => {
             {loading ? (
                 <Text>Laden...</Text>
             ) : filteredTasks.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 dark:bg-slate-900 rounded-lg border-2 border-dashed border-gray-200 dark:border-slate-800">
+                <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
                     <CheckCircleIcon className="mx-auto h-12 w-12 text-gray-400" />
-                    <Title className="mt-2 text-gray-500 dark:text-gray-400">Geen taken gevonden</Title>
+                    <Title className="mt-2 text-gray-500">Geen taken gevonden</Title>
                     <Text>Er zijn geen taken met deze status.</Text>
                 </div>
             ) : (

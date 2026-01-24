@@ -49,7 +49,7 @@ export const CreateYearModal: React.FC<CreateYearModalProps> = ({
                     Create a new year for contributions. This will initialize the base rate and groups.
                 </Text>
                 <div>
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">Year</label>
+                    <label className="text-sm font-medium text-gray-700 mb-1 block">Year</label>
                     <NumberInput
                         value={year}
                         onValueChange={setYear}
@@ -60,7 +60,7 @@ export const CreateYearModal: React.FC<CreateYearModalProps> = ({
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">Base Rate Name</label>
+                        <label className="text-sm font-medium text-gray-700 mb-1 block">Base Rate Name</label>
                         <TextInput
                             value={baseRateName}
                             onValueChange={setBaseRateName}
@@ -68,7 +68,7 @@ export const CreateYearModal: React.FC<CreateYearModalProps> = ({
                         />
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">Monthly Amount</label>
+                        <label className="text-sm font-medium text-gray-700 mb-1 block">Monthly Amount</label>
                         <NumberInput
                             value={defaultAmount}
                             onValueChange={setDefaultAmount}
@@ -80,11 +80,11 @@ export const CreateYearModal: React.FC<CreateYearModalProps> = ({
 
                 {groups.length > 0 && (
                     <div className="pt-2">
-                        <Text className="font-medium mb-2 text-gray-700 dark:text-gray-300">Group Specific Amounts</Text>
+                        <Text className="font-medium mb-2 text-gray-700">Group Specific Amounts</Text>
                         <div className="space-y-2">
                             {groups.map(g => (
-                                <div key={g.id} className="flex justify-between items-center bg-gray-50 dark:bg-slate-800 p-2 rounded">
-                                    <Text className="dark:text-gray-200">{g.name}</Text>
+                                <div key={g.id} className="flex justify-between items-center bg-gray-50 p-2 rounded">
+                                    <Text>{g.name}</Text>
                                     <div className="w-32">
                                         <NumberInput
                                             placeholder="Amount"

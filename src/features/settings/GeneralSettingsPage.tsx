@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Card, Title, Text, Switch, Select, SelectItem, TextInput } from '@tremor/react';
 import { memberService } from '../members/memberService';
 import { associationService } from '../../lib/association';
-import { ThemeSelector } from '../../components/ui/ThemeSelector';
 
 export const GeneralSettingsPage: React.FC = () => {
     // Preferences state
@@ -99,18 +98,6 @@ export const GeneralSettingsPage: React.FC = () => {
                             checked={confirmTags}
                             onChange={handleToggleConfirmTags}
                         />
-                    </div>
-
-                    <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
-                        <div>
-                            <Text className="font-medium text-gray-900">Thema</Text>
-                            <Text className="text-sm text-gray-500">
-                                Kies uw voorkeur voor de weergave.
-                            </Text>
-                        </div>
-                        <div className="w-40">
-                            <ThemeSelector />
-                        </div>
                     </div>
 
                     <div className="pt-4 border-t border-gray-100 flex items-center justify-between">

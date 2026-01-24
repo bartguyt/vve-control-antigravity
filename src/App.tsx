@@ -6,8 +6,6 @@ import { SidebarLayout } from './components/layout/SidebarLayout';
 import { LoginPage } from './features/auth/LoginPage'; // Keep generic auth static for speed
 import { UpdatePasswordPage } from './features/auth/UpdatePasswordPage';
 
-import { ThemeProvider } from './components/providers/ThemeProvider';
-
 // Lazy Load Pages for Performance
 const OverviewPage = React.lazy(() => import('./features/overview/OverviewPage').then(module => ({ default: module.OverviewPage })));
 const MemberListPage = React.lazy(() => import('./features/members/MemberListPage').then(module => ({ default: module.MemberListPage })));
@@ -39,8 +37,7 @@ const DisputePage = React.lazy(() => import('./features/finance/DisputePage').th
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-      <BrowserRouter>
+    <BrowserRouter>
         <Suspense fallback={
           <div className="flex h-screen items-center justify-center bg-gray-50">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
@@ -110,7 +107,6 @@ function App() {
           </Routes>
         </Suspense>
       </BrowserRouter>
-    </ThemeProvider>
   );
 }
 

@@ -24,11 +24,11 @@ const DroppableColumn: React.FC<{ id: string; title: string; count: number; chil
     return (
         <div
             ref={setNodeRef}
-            className={`flex-1 min-w-[300px] bg-gray-50 dark:bg-slate-900 rounded-lg p-4 flex flex-col h-full border-2 transition-colors ${isOver ? 'border-indigo-500 bg-indigo-50/50' : 'border-transparent'}`}
+            className={`flex-1 min-w-[300px] bg-gray-50 rounded-lg p-4 flex flex-col h-full border-2 transition-colors ${isOver ? 'border-indigo-500 bg-indigo-50/50' : 'border-transparent'}`}
         >
             <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold text-gray-700 dark:text-gray-200">{title}</h3>
-                <span className="bg-gray-200 dark:bg-slate-700 text-gray-600 dark:text-gray-300 text-xs py-0.5 px-2 rounded-full font-medium">
+                <h3 className="font-semibold text-gray-700">{title}</h3>
+                <span className="bg-gray-200 text-gray-600 text-xs py-0.5 px-2 rounded-full font-medium">
                     {count}
                 </span>
             </div>

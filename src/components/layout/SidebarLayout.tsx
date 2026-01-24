@@ -171,8 +171,8 @@ export const SidebarLayout: React.FC = () => {
 
     const navLinkClass = ({ isActive }: { isActive: boolean }) =>
         `flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${isActive
-            ? 'bg-white/10 text-white shadow-sm'
-            : 'text-gray-300 hover:bg-white/5 hover:text-white'
+            ? 'bg-slate-blue/10 text-slate-blue shadow-sm'
+            : 'text-gray-600 hover:bg-slate-blue/5 hover:text-slate-blue'
         }`;
 
     return (
@@ -195,12 +195,12 @@ export const SidebarLayout: React.FC = () => {
             />
 
             <div className="flex flex-1 overflow-hidden">
-                <aside className="w-72 bg-slate-blue flex flex-col transition-all duration-300 ease-in-out">
+                <aside className="w-72 bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out">
                     <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-8">
                         {
                             filteredGroups.map((group) => (
                                 <div key={group.title}>
-                                    <h3 className="px-4 text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 font-heading">
+                                    <h3 className="px-4 text-xs font-bold text-gray-700 uppercase tracking-widest mb-3 font-heading">
                                         {group.title}
                                     </h3>
                                     <div className="space-y-1">
