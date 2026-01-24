@@ -5,6 +5,8 @@ import { memberService } from '../../features/members/memberService';
 import type { Profile } from '../../types/database';
 import { CreateAssociationModal } from '../../features/associations/CreateAssociationModal';
 import { TopBar } from './TopBar';
+import { useFeatureContext } from '../../contexts/FeatureContext';
+import { getFeatureForRoute } from '../../config/features';
 import {
     HomeIcon,
     UsersIcon,
@@ -19,8 +21,7 @@ import {
     TruckIcon,
     BriefcaseIcon,
     Cog6ToothIcon,
-    BuildingOffice2Icon,
-    BuildingLibraryIcon
+    BuildingOffice2Icon
 } from '@heroicons/react/24/outline';
 import { DebugBar } from '../common/DebugBar';
 import { Toaster } from 'sonner';
@@ -102,6 +103,9 @@ export const SidebarLayout: React.FC = () => {
     // Role Simulation State
     const [simulatedRole, setSimulatedRole] = useState<string | null>(null);
 
+    // Feature flags
+    const { isFeatureEnabled } = useFeatureContext();
+
     useEffect(() => {
         loadProfile();
     }, []);
@@ -147,19 +151,27 @@ export const SidebarLayout: React.FC = () => {
     const isSuperAdmin = profile?.is_super_admin || false;
 
     const filterNavGroups = (groups: NavGroup[]) => {
-        if (isSuperAdmin && !simulatedRole) {
-            return groups; // Super Admin sees everything
-        }
-
         return groups.map(group => ({
             ...group,
             items: group.items.filter(item => {
-                // Special case for Super Admin Dashboard
+                // 1. Check feature flags first (feature availability)
+                const requiredFeature = getFeatureForRoute(item.path);
+                if (requiredFeature && !isFeatureEnabled(requiredFeature)) {
+                    return false; // Feature is disabled, hide nav item
+                }
+
+                // 2. Super Admin bypass for role restrictions (but not feature flags!)
+                if (isSuperAdmin && !simulatedRole) {
+                    return true; // Super Admin sees all enabled features
+                }
+
+                // 3. Special case for Super Admin Dashboard
                 if (item.path === '/system/admin') {
                     if (isSuperAdmin && !simulatedRole) return true;
                     return false;
                 }
 
+                // 4. Check role-based access
                 const allowedRoles = restrictedPaths[item.path];
                 if (!allowedRoles) return true;
                 return allowedRoles.includes(activeRole);
