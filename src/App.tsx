@@ -6,6 +6,7 @@ import { SidebarLayout } from './components/layout/SidebarLayout';
 import { LoginPage } from './features/auth/LoginPage'; // Keep generic auth static for speed
 import { UpdatePasswordPage } from './features/auth/UpdatePasswordPage';
 import { FeatureProvider } from './contexts/FeatureContext';
+import { FeatureRoute, UpgradePage } from './components/FeatureRoute';
 
 // Lazy Load Pages for Performance
 const OverviewPage = React.lazy(() => import('./features/overview/OverviewPage').then(module => ({ default: module.OverviewPage })));
@@ -45,47 +46,82 @@ function App() {
           </div>
         }>
           <Routes>
+            {/* Public routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/update-password" element={<UpdatePasswordPage />} />
             <Route path="/accept-invite" element={<AcceptInvitePage />} />
+            <Route path="/upgrade" element={<UpgradePage />} />
 
             <Route element={<ProtectedRoute />}>
               <Route element={<SidebarLayout />}>
                 {/* Algemeen - General */}
                 <Route path="/" element={<OverviewPage />} />
-                <Route path="general/docs" element={<Navigate to="general/documents" replace />} /> {/* Alias if needed */}
-                <Route path="general/tasks" element={<TasksPage />} />
+                <Route path="general/docs" element={<Navigate to="general/documents" replace />} />
+
+                {/* BASE TIER - Always available */}
                 <Route path="general/agenda" element={<AgendaPage />} />
                 <Route path="general/documents" element={<DocumentListPage />} />
                 <Route path="general/notifications" element={<NotificationsPage />} />
 
+                {/* PREMIUM TIER - Tasks */}
+                <Route element={<FeatureRoute feature="tasks" />}>
+                  <Route path="general/tasks" element={<TasksPage />} />
+                </Route>
+
                 {/* Association - Vereniging */}
                 <Route path="finance/dispute" element={<DisputePage />} />
 
+                {/* BASE TIER - Members (always available) */}
                 <Route path="association/members" element={<MemberListPage />} />
                 <Route path="association/members/:id" element={<MemberDetailPage />} />
-                <Route path="association/voting" element={<ProposalsPage />} />
+
+                {/* PREMIUM TIER - Voting */}
+                <Route element={<FeatureRoute feature="voting" />}>
+                  <Route path="association/voting" element={<ProposalsPage />} />
+                </Route>
 
                 {/* Finance - Financieel */}
-                <Route element={<RoleProtectedRoute allowedRoles={['board', 'audit_comm', 'admin', 'manager']} />}>
-                  <Route path="finance/bank" element={<BankAccountPage />} />
-                </Route>
+
+                {/* BASE TIER - Contributions (always available) */}
                 <Route path="finance/contributions" element={
                   <RoleProtectedRoute allowedRoles={['admin', 'board', 'manager', 'audit_comm']} allowMember={true}>
                     <ContributionsPage />
                   </RoleProtectedRoute>
                 } />
-                <Route path="finance/accounting" element={
-                  <RoleProtectedRoute allowedRoles={['admin', 'board', 'manager', 'audit_comm']}>
-                    <AccountingPage />
-                  </RoleProtectedRoute>
-                } />
-                <Route path="finance/enable-banking-v2" element={<EnableBankingSandboxV2 />} />
+
+                {/* PREMIUM TIER - Banking */}
+                <Route element={<FeatureRoute feature="banking" />}>
+                  <Route element={<RoleProtectedRoute allowedRoles={['board', 'audit_comm', 'admin', 'manager']} />}>
+                    <Route path="finance/bank" element={<BankAccountPage />} />
+                    <Route path="finance/enable-banking-v2" element={<EnableBankingSandboxV2 />} />
+                  </Route>
+                  <Route element={<RoleProtectedRoute allowedRoles={['board', 'admin', 'manager']} />}>
+                    <Route path="system/connections/bank" element={<ConnectionsPage />} />
+                  </Route>
+                </Route>
+
+                {/* PREMIUM TIER - Accounting */}
+                <Route element={<FeatureRoute feature="accounting" />}>
+                  <Route path="finance/accounting" element={
+                    <RoleProtectedRoute allowedRoles={['admin', 'board', 'manager', 'audit_comm']}>
+                      <AccountingPage />
+                    </RoleProtectedRoute>
+                  } />
+                </Route>
 
                 {/* Maintenance - Beheer & Onderhoud */}
-                <Route element={<RoleProtectedRoute allowedRoles={['board', 'tech_comm', 'admin', 'manager']} />}>
-                  <Route path="maintenance/suppliers" element={<SuppliersPage />} />
-                  <Route path="maintenance/assignments" element={<AssignmentsPage />} />
+                {/* ENTERPRISE TIER - Suppliers */}
+                <Route element={<FeatureRoute feature="suppliers" />}>
+                  <Route element={<RoleProtectedRoute allowedRoles={['board', 'tech_comm', 'admin', 'manager']} />}>
+                    <Route path="maintenance/suppliers" element={<SuppliersPage />} />
+                  </Route>
+                </Route>
+
+                {/* ENTERPRISE TIER - Assignments */}
+                <Route element={<FeatureRoute feature="assignments" />}>
+                  <Route element={<RoleProtectedRoute allowedRoles={['board', 'tech_comm', 'admin', 'manager']} />}>
+                    <Route path="maintenance/assignments" element={<AssignmentsPage />} />
+                  </Route>
                 </Route>
 
                 {/* System - Systeem */}
@@ -93,7 +129,7 @@ function App() {
                   <Route path="system" element={<SystemSettingsPage />}>
                     <Route index element={<Navigate to="/system/general" replace />} />
                     <Route path="general" element={<GeneralSettingsPage />} />
-                    <Route path="connections/bank" element={<ConnectionsPage />} />
+                    {/* Note: bank connections route moved to banking section above */}
                   </Route>
                 </Route>
 
