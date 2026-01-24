@@ -7,7 +7,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFeatureContext } from '../contexts/FeatureContext';
-import { FeatureName } from '../config/features';
+import type { FeatureName } from '../config/features';
 
 /**
  * Check if a specific feature is enabled

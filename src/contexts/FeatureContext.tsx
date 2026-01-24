@@ -4,12 +4,11 @@
  * Part of Fase 1: Feature Flag Infrastructure for Freemium Model
  */
 
-import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { associationService } from '../lib/association';
+import type { FeatureName, SubscriptionTier } from '../config/features';
 import {
-  FeatureName,
-  SubscriptionTier,
   FEATURE_REGISTRY,
   getFeatureForRoute,
   getDefaultFeatureFlags

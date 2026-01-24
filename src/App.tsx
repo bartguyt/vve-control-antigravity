@@ -27,8 +27,7 @@ const SystemSettingsPage = React.lazy(() => import('./features/settings/SystemSe
 const GeneralSettingsPage = React.lazy(() => import('./features/settings/GeneralSettingsPage').then(module => ({ default: module.GeneralSettingsPage })));
 const ConnectionsPage = React.lazy(() => import('./features/settings/ConnectionsPage').then(module => ({ default: module.ConnectionsPage })));
 
-// Placeholders
-const PlaceholderDefault = () => <div className="p-4">Deze pagina is nog in ontwikkeling.</div>;
+// Voting & Notifications
 const ProposalsPage = React.lazy(() => import('./features/voting/ProposalsPage').then(module => ({ default: module.ProposalsPage })));
 const NotificationsPage = React.lazy(() => import('./features/general/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
 

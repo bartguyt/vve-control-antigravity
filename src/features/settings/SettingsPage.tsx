@@ -60,8 +60,6 @@ import {
     ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { useSearchParams } from 'react-router-dom';
-import { seedFinanceData } from '../../utils/seedFinance';
-import { ThemeSelector } from '../../components/ui/ThemeSelector';
 
 const DEFAULT_MEMBER_COLUMNS: ColumnConfig[] = [
     { id: 'name', label: 'Name', visible: true, order: 0 },
@@ -400,18 +398,6 @@ export const SettingsPage: React.FC = () => {
                                             checked={confirmTags}
                                             onChange={handleToggleConfirmTags}
                                         />
-                                    </div>
-
-                                    <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
-                                        <div>
-                                            <Text className="font-medium text-gray-900">Thema</Text>
-                                            <Text className="text-sm text-gray-500">
-                                                Kies uw voorkeur voor de weergave.
-                                            </Text>
-                                        </div>
-                                        <div className="w-40">
-                                            <ThemeSelector />
-                                        </div>
                                     </div>
 
                                     <div className="pt-4 border-t border-gray-100 flex items-center justify-between">

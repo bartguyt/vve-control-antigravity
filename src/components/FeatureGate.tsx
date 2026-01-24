@@ -4,9 +4,9 @@
  * Part of Fase 1: Feature Flag Infrastructure for Freemium Model
  */
 
-import React, { ReactNode } from 'react';
+import React, { type ReactNode } from 'react';
 import { useFeature, useAllFeaturesEnabled } from '../hooks/useFeature';
-import { FeatureName } from '../config/features';
+import type { FeatureName } from '../config/features';
 import { Card, Title, Text, Button } from '@tremor/react';
 import { LockClosedIcon } from '@heroicons/react/24/outline';
 
